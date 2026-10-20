@@ -45,7 +45,7 @@ external_signaling_address=${HOST_IP}
 local_net=${DOCKER_SUBNET}
 "
   else
-    echo "WARNUNG: SIP_TLS_ENABLED=true, aber /certs/sip-cert.pem bzw. sip-key.pem fehlen - TLS-Transport wird NICHT aktiviert." >&2
+    echo "WARNUNG: SIP_TLS_ENABLED=true, aber /certs/sip-cert.pem bzw. sip-key.pem fehlen oder sind fuer UID 10001 nicht lesbar - TLS-Transport wird NICHT aktiviert (Verzeichnis certs/ 755, Schluessel: chown 10001:10001 + chmod 600)." >&2
   fi
 fi
 export TLS_TRANSPORT

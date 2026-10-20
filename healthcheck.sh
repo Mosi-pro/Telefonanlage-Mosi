@@ -20,9 +20,10 @@ check_once() {
   dc exec -T asterisk asterisk -rx "core show uptime" >/dev/null 2>&1; res $? "Telefonie-Engine (Asterisk antwortet auf Konsolenbefehl)"
   dc exec -T asterisk asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "Transport:"; res $? "SIP-Transporte geladen (UDP/TCP/WS)"
   dc exec -T app node -e "fetch('http://127.0.0.1:3000/api/health').then(async r=>{const j=await r.json();console.log(JSON.stringify(j));process.exit(r.ok&&j.ok?0:1)}).catch(()=>process.exit(1))" >/dev/null 2>&1; res $? "Backend-API (Datenbank und Verbindung zu Asterisk)"
-  local port ip; port="$(env_get HTTPS_PORT)"; ip="$(env_get HOST_IP)"
-  # Zertifikat der lokalen CA ist dem Skript unbekannt -> -k; geprueft wird Erreichbarkeit, Proxy-Weg und Backend
-  curl -ks --noproxy '*' --max-time 8 "https://${ip}:${port:-443}/api/health" 2>/dev/null | grep -q '"ok":true'; res $? "HTTPS-Reverse-Proxy -> Backend ueber https://${ip}:${port:-443}"
+  local port ip name; port="$(env_get HTTPS_PORT)"; ip="$(env_get HOST_IP)"; name="$(env_get MOSI_HOSTNAME)"; name="${name:-$ip}"
+  # Das Zertifikat der lokalen CA ist dem Skript unbekannt -> -k; geprueft wird Erreichbarkeit, Proxy-Weg und Backend.
+  # --resolve: Host-Header/SNI = MOSI_HOSTNAME (so wie Browser zugreifen), Verbindung zur HOST_IP.
+  curl -ks --noproxy '*' --max-time 8 --resolve "${name}:${port:-443}:${ip}" "https://${name}:${port:-443}/api/health" 2>/dev/null | grep -q '"ok":true'; res $? "HTTPS-Reverse-Proxy -> Backend ueber https://${name}:${port:-443}"
   return $bad
 }
 

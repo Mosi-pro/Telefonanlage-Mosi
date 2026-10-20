@@ -115,7 +115,7 @@ ok "Compose-Konfiguration ist gueltig"
 if [ "$(env_get SIP_TLS_ENABLED)" = "true" ]; then
   [ -r certs/sip-cert.pem ] && [ -r certs/sip-key.pem ] || die "SIP_TLS_ENABLED=true, aber certs/sip-cert.pem bzw. certs/sip-key.pem fehlen."
 fi
-mkdir -p certs
+mkdir -p certs && chmod 755 certs   # Container (UID 10001/root) muessen das Verzeichnis lesen koennen; .env bleibt 600
 
 [ "$NO_START" = 1 ] && { info "--no-start: Installation hier beendet."; exit 0; }
 

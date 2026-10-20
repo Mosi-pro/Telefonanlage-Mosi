@@ -41,7 +41,7 @@ MOSI_TLS=/certs/fullchain.pem /certs/privkey.pem
 ```
 `docker compose up -d proxy`. Der Hostname muss zum Zertifikat passen. Zertifikate und Schlüssel gehören **nicht** ins Git (`.gitignore` schließt `certs/`, `*.pem`, `*.key` aus).
 
-**SIP-TLS (optional, ungetestet):** `certs/sip-cert.pem` + `certs/sip-key.pem` ablegen, `SIP_TLS_ENABLED=true`, `docker compose up -d` (die Skripte binden `compose.tls.yaml` automatisch ein). Endgeräte müssen dem Zertifikat vertrauen.
+**SIP-TLS (optional):** `certs/sip-cert.pem` + `certs/sip-key.pem` ablegen (Verzeichnis `certs/` mit Rechten 755; Schlüssel für die Asterisk-Benutzer-ID lesbar machen: `sudo chown 10001:10001 certs/sip-key.pem && chmod 600 certs/sip-key.pem`), `SIP_TLS_ENABLED=true`, `docker compose up -d` (die Skripte binden `compose.tls.yaml` automatisch ein). Endgeräte müssen dem Zertifikat vertrauen.
 
 ## WebRTC, NAT, STUN/TURN
 
