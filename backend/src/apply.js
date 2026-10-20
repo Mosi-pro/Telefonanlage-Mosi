@@ -13,6 +13,7 @@ const DIR = config.asterisk.generatedDir;
 const FILES = ['pjsip_mosi.conf', 'extensions_mosi.conf', 'voicemail_mosi.conf', 'queues_mosi.conf'];
 
 let ami = null;
+let lastEndpoints = null; // zuletzt erfolgreich geladene Endpunkte (zum Aufraeumen geloeschter Nebenstellen)
 const setAmi = (a) => { ami = a; };
 
 // Einfache Mutex-Warteschlange: nur eine Konfigurationsaenderung gleichzeitig.
@@ -118,6 +119,23 @@ async function reloadAndVerify(generated) {
   throw new ConfigError(`Asterisk hat die Konfiguration nicht vollstaendig uebernommen: ${problems.join('; ')}`);
 }
 
+/** Entfernt gespeicherte Registrierungen (Kontakte) von Endpunkten, die es nicht mehr gibt. */
+async function purgeContacts(removed) {
+  if (!removed.length || !ami || !ami.connected) return;
+  try {
+    const out = await ami.command('database show registrar/contact');
+    for (const line of out.split('\n')) {
+      const m = /^\/registrar\/contact\/([A-Za-z0-9._-]+;@[0-9a-f]+)\s*:/.exec(line.trim());
+      if (m && removed.includes(m[1].split(';')[0])) await ami.command(`database del registrar/contact ${m[1]}`);
+    }
+  } catch (e) { log.warn('Aufraeumen alter Registrierungen fehlgeschlagen', { error: e.message }); }
+}
+const noteLoaded = async (generated) => {
+  const now = new Set(generated.expected.endpoints);
+  if (lastEndpoints) await purgeContacts([...lastEndpoints].filter((e) => !now.has(e)));
+  lastEndpoints = now;
+};
+
 async function recordRevision({ ok, error, user, reason, generated }) {
   const files = Object.fromEntries(Object.entries(generated.files).map(([k, v]) => [k, redact(v)]));
   const hash = sha256(JSON.stringify(generated.files));
@@ -144,6 +162,7 @@ function transact(ctx, fn) {
         await reloadAndVerify(generated);
         return r;
       });
+      await noteLoaded(generated);
       await recordRevision({ ok: true, user: ctx.user, reason: ctx.reason, generated });
       return result;
     } catch (e) {
@@ -170,11 +189,12 @@ function sync(reason = 'Synchronisation') {
       const same = FILES.every((f) => current[f] === generated.files[f]);
       if (same && ami && ami.connected) {
         const problems = await verify(generated).catch((e) => [e.message]);
-        if (!problems.length) return { changed: false };
+        if (!problems.length) { lastEndpoints = new Set(generated.expected.endpoints); return { changed: false }; }
         log.warn('Geladene Konfiguration weicht ab, lade neu', { problems });
       }
       writeFiles(generated.files);
       await reloadAndVerify(generated);
+      lastEndpoints = new Set(generated.expected.endpoints);
       await recordRevision({ ok: true, user: 'system', reason, generated });
       return { changed: !same };
     } catch (e) {

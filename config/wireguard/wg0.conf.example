@@ -1,0 +1,25 @@
+# BEISPIEL: WireGuard-Server in Ihrem Netz (z. B. auf Router/Firewall oder eigener VM), damit Smartphones von
+# unterwegs ueber ein VPN telefonieren. SIP/RTP werden NIE direkt ins Internet geoeffnet.
+# Schluessel erzeugen:  wg genkey | tee server.key | wg pubkey > server.pub
+[Interface]
+Address = 10.99.0.1/24
+ListenPort = 51820
+PrivateKey = <SERVER_PRIVATE_KEY>
+
+# Smartphone von Anna
+[Peer]
+PublicKey = <PHONE_PUBLIC_KEY>
+AllowedIPs = 10.99.0.2/32
+
+# --- Client-Konfiguration (auf dem Smartphone) ---
+# [Interface]
+# PrivateKey = <PHONE_PRIVATE_KEY>
+# Address = 10.99.0.2/32
+# [Peer]
+# PublicKey = <SERVER_PUBLIC_KEY>
+# Endpoint = vpn.example.org:51820
+# AllowedIPs = 192.168.1.50/32, 10.99.0.0/24     # nur Mosi + VPN-Netz durch den Tunnel (Split-Tunnel)
+# PersistentKeepalive = 25
+#
+# In der Mosi-.env muss das VPN-Netz (hier 10.99.0.0/24) in SIP_ALLOWED_NETS und ADMIN_ALLOWED_NETS stehen
+# (10.0.0.0/8 ist bereits in den Standardwerten enthalten).

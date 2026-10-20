@@ -32,7 +32,7 @@ module.exports = {
     sipTlsEnabled: (env.SIP_TLS_ENABLED ?? 'false') === 'true',
     wsPort: 8088,
     rtpStart: int('RTP_START', 10000),
-    rtpEnd: int('RTP_END', 10199),
+    rtpEnd: int('RTP_END', 10099),
     generatedDir: env.ASTERISK_GENERATED_DIR || '/etc/asterisk/mosi',
     logDir: env.ASTERISK_LOG_DIR || '/var/log/asterisk',
     voicemailDir: env.VOICEMAIL_DIR || '/var/spool/asterisk/voicemail',
@@ -47,6 +47,7 @@ module.exports = {
     loginMaxFailures: int('LOGIN_MAX_FAILURES', 5),
     loginLockMinutes: int('LOGIN_LOCK_MINUTES', 15),
     sessionHours: int('SESSION_HOURS', 12),
+    callRetentionDays: int('CALL_RETENTION_DAYS', 365),
   },
   bootstrapAdmin: {
     username: env.ADMIN_USER || 'admin',

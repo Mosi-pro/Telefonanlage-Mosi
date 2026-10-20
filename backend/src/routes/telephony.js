@@ -6,7 +6,7 @@ const db = require('../db');
 const monitor = require('../monitor');
 const { encrypt, decrypt, sipPassword, voicemailPin, randomString } = require('../crypto');
 const { requireRole } = require('../auth');
-const { express, h, audit, mutate, plain, crud, dest, numberList, nullIfEmpty, v } = require('./helpers');
+const { express, sensitiveLimit, h, audit, mutate, plain, crud, dest, numberList, nullIfEmpty, v } = require('./helpers');
 
 const router = express.Router();
 
@@ -92,7 +92,7 @@ crud(router, {
 });
 // Die generische GET-Route oben ist bereits registriert (Rolle user); die crud()-GET wird davon ueberdeckt.
 
-router.post('/extensions/:id(\\d+)/reset-password', requireRole('operator'), h(async (req, res) => {
+router.post('/extensions/:id(\\d+)/reset-password', requireRole('operator'), sensitiveLimit, h(async (req, res) => {
   await mutate(req, 'SIP-Passwort erneuern', async (c) => {
     const r = await c.query('UPDATE extensions SET sip_password_enc = $1, updated_at = now() WHERE id = $2 RETURNING number', [encrypt(sipPassword()), req.params.id]);
     if (!r.rowCount) { const e = new Error('Nebenstelle nicht gefunden'); e.status = 404; throw e; }
@@ -111,7 +111,7 @@ router.post('/extensions/:id(\\d+)/reset-pin', requireRole('operator'), h(async 
 }));
 
 /** Verbindungsdaten fuer SIP-Apps/Tischtelefone (inkl. Passwort - Zugriff wird protokolliert). */
-router.get('/extensions/:id(\\d+)/connection', requireRole('user'), h(async (req, res) => {
+router.get('/extensions/:id(\\d+)/connection', requireRole('user'), sensitiveLimit, h(async (req, res) => {
   const ex = (await db.query('SELECT * FROM extensions WHERE id = $1', [req.params.id])).rows[0];
   if (!ex) return res.status(404).json({ error: 'Nebenstelle nicht gefunden' });
   if (req.user.role === 'user' && ex.user_id !== req.user.id) return res.status(403).json({ error: 'Keine Berechtigung' });

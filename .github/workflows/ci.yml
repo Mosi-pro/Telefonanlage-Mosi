@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Backend Unit-Tests
+        working-directory: backend
+        run: |
+          npm ci
+          npm test
+      - name: Dashboard-Skripte syntaktisch pruefen
+        run: |
+          for f in $(find frontend/js -name '*.js'); do node --check "$f"; done
+      - name: Shell-Skripte pruefen
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck -x -S warning install.sh update.sh backup.sh restore.sh uninstall.sh healthcheck.sh scripts/lib.sh telephony/entrypoint.sh tests/integration/local-env.sh
+      - name: Compose-Konfiguration pruefen
+        run: |
+          cp .env.example .env
+          sed -i 's/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=ci/; s/^APP_SECRET=$/APP_SECRET=ci-secret-ci-secret-ci-secret-ci-secret/; s/^AMI_SECRET=$/AMI_SECRET=ci-ami-secret/' .env
+          docker compose config -q
+
+  images:
+    runs-on: ubuntu-24.04
+    needs: checks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Images bauen (Debian-/Node-Basis wie in der Produktion)
+        run: |
+          cp .env.example .env
+          sed -i 's/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=ci/; s/^APP_SECRET=$/APP_SECRET=ci-secret-ci-secret-ci-secret-ci-secret/; s/^AMI_SECRET=$/AMI_SECRET=ci-ami-secret/' .env
+          docker compose build

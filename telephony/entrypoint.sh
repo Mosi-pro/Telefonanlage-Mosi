@@ -9,7 +9,7 @@ set -eu
 export SIP_PORT="${SIP_PORT:-5060}"
 export SIP_TLS_PORT="${SIP_TLS_PORT:-5061}"
 export RTP_START="${RTP_START:-10000}"
-export RTP_END="${RTP_END:-10199}"
+export RTP_END="${RTP_END:-10099}"
 export DOCKER_SUBNET="${DOCKER_SUBNET:-172.29.0.0/24}"
 export SIP_ALLOWED_NETS="${SIP_ALLOWED_NETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}"
 export AMI_PERMIT="${AMI_PERMIT:-$DOCKER_SUBNET}"
@@ -57,6 +57,13 @@ VARS='${AST_ETC} ${AST_LIB} ${AST_SPOOL} ${AST_RUN} ${AST_LOG} ${AST_CACHE} ${HO
 for f in asterisk.conf acl.conf modules.conf logger.conf http.conf pjsip.conf rtp.conf manager.conf \
          extensions.conf voicemail.conf queues.conf cdr.conf cdr_custom.conf musiconhold.conf; do
   envsubst "$VARS" < "$T/$f.tmpl" > "$D/$f"
+done
+
+# Leere Dateien fuer optionale Module, damit Asterisk beim (Neu-)Laden keine Fehlermeldungen ueber fehlende Konfiguration schreibt
+for f in stir_shaken.conf pjsip_wizard.conf geolocation.conf pjproject.conf aeap.conf smdi.conf res_fax.conf cel_custom.conf \
+         cli_aliases.conf resolver_unbound.conf statsd.conf udptl.conf features.conf indications.conf res_odbc.conf \
+         res_pgsql.conf res_config_sqlite3.conf res_ldap.conf cel.conf ccss.conf xmpp.conf phoneprov.conf hep.conf; do
+  [ -e "$D/$f" ] || : > "$D/$f"
 done
 
 # Platzhalter fuer generierte Dateien (Backend ueberschreibt sie atomar).

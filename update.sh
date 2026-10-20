@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Geordnetes Update: Backup -> neuen Stand holen -> Images neu bauen -> Dienste ersetzen -> pruefen.
-# Persistente Daten (Volumes) werden NIE geloescht. Aufruf:  ./update.sh [--yes] [--no-git]
+# Persistente Daten (Volumes) werden NIE geloescht. Aufruf:  ./update.sh [--yes] [--no-git] [--skip-build]
 set -euo pipefail
 source "$(dirname "$0")/scripts/lib.sh"
-ASSUME_YES=0; NO_GIT=0
-for a in "$@"; do case "$a" in --yes|-y) ASSUME_YES=1 ;; --no-git) NO_GIT=1 ;; *) die "Unbekannte Option: $a" ;; esac; done
+ASSUME_YES=0; NO_GIT=0; SKIP_BUILD=0
+for a in "$@"; do case "$a" in --yes|-y) ASSUME_YES=1 ;; --no-git) NO_GIT=1 ;; --skip-build) SKIP_BUILD=1 ;; *) die "Unbekannte Option: $a" ;; esac; done
 export ASSUME_YES
 refuse_proxmox_host; require_docker; check_env_complete
 
@@ -28,7 +28,7 @@ if [ "$NO_GIT" = 0 ] && [ -d .git ]; then git pull --ff-only || die "git pull is
 dc config -q || die "Neue Compose-Konfiguration ist ungueltig."
 
 info "4/5 Images bauen und Dienste ersetzen"
-dc build --pull || die "Build fehlgeschlagen. Der laufende Stand bleibt unveraendert aktiv."
+[ "$SKIP_BUILD" = 1 ] || dc build --pull || die "Build fehlgeschlagen. Der laufende Stand bleibt unveraendert aktiv."
 dc pull --ignore-buildable
 dc up -d --remove-orphans
 

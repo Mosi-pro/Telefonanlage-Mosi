@@ -46,6 +46,8 @@ function generate(state) {
     shortSeen.add(c.short_code);
   }
 
+  const dsLines = (e) => [' same => n,Set(MOSI_DS=)', ` same => n,Gosub(mosi-ds,s,1(${e.sip_username}))`,
+    ...(e.webrtc_enabled ? [` same => n,Gosub(mosi-dsw,s,1(${e.sip_username}-web))`] : [])];
   const dialStr = (e) => (e.webrtc_enabled ? `PJSIP/${e.sip_username}&PJSIP/${e.sip_username}-web` : `PJSIP/${e.sip_username}`);
   const memberDial = (n) => {
     const e = extByNum.get(n);
@@ -151,6 +153,27 @@ function generate(state) {
     ' same => n(loop),NoOp(Weiterleitungsschleife erkannt)',
     ' same => n,Congestion(5)', '');
 
+  // Wahlstring fuer ALLE erreichbaren Kontakte (Tischtelefon, App, Browser) einer Nebenstelle:
+  // "Dial(PJSIP/<endpoint>)" wuerde nur EINEN Kontakt anrufen, PJSIP_DIAL_CONTACTS() liefert alle verfuegbaren.
+  // (Kein ${IF()} mit den Kontakt-URIs: der Doppelpunkt in "sip:..." wuerde die IF-Argumente zerreissen.)
+  L('[mosi-ds]',
+    'exten => s,1,Set(MOSI_C=${PJSIP_DIAL_CONTACTS(${ARG1})})',
+    ' same => n,GotoIf($["${MOSI_C}"=""]?done)',
+    ' same => n,GotoIf($["${MOSI_DS}"=""]?first)',
+    ' same => n,Set(MOSI_DS=${MOSI_DS}&${MOSI_C})',
+    ' same => n,Return()',
+    ' same => n(first),Set(MOSI_DS=${MOSI_C})',
+    ' same => n(done),Return()', '');
+  // Browser-Kontakte (WebSocket) enthalten in der Kontakt-URI "x-ast-orig-host=...:0" und sind als Kontakt-Wahlstring
+  // nicht waehlbar -> hier ueber den Endpunkt waehlen, aber nur wenn ein Browser registriert ist.
+  L('[mosi-dsw]',
+    'exten => s,1,GotoIf($["${DEVICE_STATE(PJSIP/${ARG1})}"="UNAVAILABLE"]?done)',
+    ' same => n,GotoIf($["${MOSI_DS}"=""]?first)',
+    ' same => n,Set(MOSI_DS=${MOSI_DS}&PJSIP/${ARG1})',
+    ' same => n,Return()',
+    ' same => n(first),Set(MOSI_DS=PJSIP/${ARG1})',
+    ' same => n(done),Return()', '');
+
   // Berechtigungspruefung fuer ausgehende Rufe
   L('[mosi-outchk]',
     'exten => s,1,NoOp(Pruefung Klasse ${ARG1} Ziel ${ARG2} von ${MOSI_EXT})',
@@ -195,7 +218,7 @@ function generate(state) {
     L(`exten => ${e.number},hint,${e.enabled ? dialStr(e) : 'Custom:disabled' + e.number}`);
     L(`exten => ${e.number},1,NoOp(Nebenstelle ${e.number})`);
     if (!e.enabled) { L(' same => n,Congestion(5)'); continue; }
-    L(' same => n,Gosub(mosi-hop,s,1)', ` same => n,Set(__PICKUPMARK=${e.number}@mosi-dest)`);
+    L(' same => n,Gosub(mosi-hop,s,1)', ` same => n,Set(__PICKUPMARK=${e.number})`);
     const fwd = (target, label) => {
       if (/^[0-9]{2,6}$/.test(target) && numbers.has(target)) return [`Goto(mosi-dest,${target},1)`];
       if (/^\+?[0-9*#]{1,24}$/.test(target)) {
@@ -207,7 +230,10 @@ function generate(state) {
       throw new ConfigError(`Nebenstelle ${e.number}: ${label} hat ein ungueltiges Ziel`);
     };
     if (e.fwd_always) { fwd(e.fwd_always, 'Rufumleitung sofort').forEach((l) => L(` same => n,${l}`)); L(''); continue; }
-    L(` same => n,Dial(${dialStr(e)},${e.ring_timeout},tT)`,
+    // Besetzt-Zustand: laeuft bereits ein Gespraech auf einem Endgeraet der Nebenstelle (device_state_busy_at=1)
+    L(` same => n,GotoIf($["\${DEVICE_STATE(PJSIP/${e.sip_username})}"="BUSY"${e.webrtc_enabled ? ` | "\${DEVICE_STATE(PJSIP/${e.sip_username}-web)}"="BUSY"` : ''}]?busy)`);
+    L(...dsLines(e), ' same => n,GotoIf($["${MOSI_DS}"=""]?unavail)',
+      ` same => n,Dial(\${MOSI_DS},${e.ring_timeout},tT)`,
       ' same => n,GotoIf($["${DIALSTATUS}"="BUSY"]?busy)',
       ' same => n,GotoIf($["${DIALSTATUS}"="NOANSWER"]?noanswer)',
       ' same => n,GotoIf($["${DIALSTATUS}"="CHANUNAVAIL" | "${DIALSTATUS}"="CONGESTION"]?unavail)',
@@ -225,19 +251,25 @@ function generate(state) {
   }
 
   for (const g of groups) {
-    const dials = g.members.map((m) => memberDial(m)).filter(Boolean);
+    const members = g.members.map((m) => {
+      const e = extByNum.get(m);
+      if (!e) throw new ConfigError(`Mitglied ${m} ist keine Nebenstelle`);
+      return e;
+    }).filter((e) => e.enabled);
     L(`exten => ${g.number},1,NoOp(Rufgruppe ${g.number})`, ' same => n,Gosub(mosi-hop,s,1)');
-    if (!dials.length) L(' same => n,NoOp(Keine aktiven Mitglieder)');
+    if (!members.length) L(' same => n,NoOp(Keine aktiven Mitglieder)');
     else if (g.strategy === 'ringall') {
-      L(` same => n,Dial(${dials.join('&')},${g.timeout},tT)`);
+      L(' same => n,Set(MOSI_DS=)');
+      for (const e of members) L(` same => n,Gosub(mosi-ds,s,1(${e.sip_username}))`, ...(e.webrtc_enabled ? [` same => n,Gosub(mosi-dsw,s,1(${e.sip_username}-web))`] : []));
+      L(' same => n,GotoIf($["${MOSI_DS}"=""]?nobody)', ` same => n,Dial(\${MOSI_DS},${g.timeout},tT)`);
     } else {
-      dials.forEach((d, i) => {
-        L(` same => n,Dial(${d},${g.timeout},tT)`,
-          ` same => n,GotoIf($["\${DIALSTATUS}"="ANSWER" | "\${DIALSTATUS}"="CANCEL"]?done)`);
-        if (i === dials.length - 1) L(' same => n,NoOp(Niemand erreicht)');
-      });
+      for (const e of members) {
+        L(...dsLines(e), ' same => n,GotoIf($["${MOSI_DS}"=""]?next' + e.id + ')', ` same => n,Dial(\${MOSI_DS},${g.timeout},tT)`,
+          ' same => n,GotoIf($["${DIALSTATUS}"="ANSWER" | "${DIALSTATUS}"="CANCEL"]?done)', ` same => n(next${e.id}),NoOp(naechstes Mitglied)`);
+      }
     }
-    L(' same => n,GotoIf($["${DIALSTATUS}"="ANSWER" | "${DIALSTATUS}"="CANCEL"]?done)',
+    L(' same => n(nobody),NoOp(Niemand erreicht)',
+      ' same => n,GotoIf($["${DIALSTATUS}"="ANSWER" | "${DIALSTATUS}"="CANCEL"]?done)',
       ` same => n,${destLine(g.fallback, `Rufgruppe ${g.number}`)}`, ' same => n(done),Hangup()', '');
   }
 
@@ -276,7 +308,7 @@ function generate(state) {
     'exten => *97,1,Answer()', ' same => n,Wait(1)', ' same => n,VoiceMailMain(${MOSI_EXT}@default,s)', ' same => n,Hangup()',
     'exten => *98,1,Answer()', ' same => n,Wait(1)', ' same => n,VoiceMailMain(@default)', ' same => n,Hangup()',
     'exten => _**X.,1,GotoIf($["${MOSI_PICKUP}"="1"]?ok)', ' same => n,Playback(ss-noservice,noanswer)', ' same => n,Hangup(21)',
-    ' same => n(ok),Pickup(${EXTEN:2}@mosi-dest)', ' same => n,Hangup()');
+    ' same => n(ok),Pickup(${EXTEN:2}@PICKUPMARK)', ' same => n,Hangup()');
   for (const c of contacts) if (c.short_code) L(`exten => ${c.short_code},1,Goto(mosi-internal,${c.number},1)`);
   L('');
 

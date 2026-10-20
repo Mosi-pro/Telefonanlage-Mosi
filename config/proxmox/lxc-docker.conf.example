@@ -1,0 +1,10 @@
+# BEISPIEL fuer /etc/pve/lxc/<CTID>.conf auf dem Proxmox-Host (wird NICHT automatisch angewendet).
+# Diese Zeilen aktivieren die Funktionen, die Docker innerhalb eines LXC-Containers braucht.
+# Besser und einfacher: im Proxmox-Webinterface unter Container -> Optionen -> Features "Nesting" und "keyctl" anhaken.
+features: nesting=1,keyctl=1
+# unprivilegierter Container (Standard, empfohlen) - NICHT auf "unprivileged: 0" umstellen
+unprivileged: 1
+# Mindestens: 2 Kerne, 2 GB RAM, 16 GB Speicher
+cores: 2
+memory: 2048
+swap: 512

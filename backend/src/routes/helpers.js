@@ -1,9 +1,13 @@
 'use strict';
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const apply = require('../apply');
 const v = require('../validate');
 const { requireRole } = require('../auth');
+
+/** Begrenzung fuer sensible Endpunkte (Zugangsdaten anzeigen, Benutzer anlegen, ...) */
+const sensitiveLimit = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'Zu viele Anfragen - bitte kurz warten' } });
 
 const h = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -79,4 +83,4 @@ const numberList = (field, val) => {
   return out;
 };
 
-module.exports = { express, h, audit, mutate, plain, crud, dest, numberList, nullIfEmpty, v };
+module.exports = { express, sensitiveLimit, h, audit, mutate, plain, crud, dest, numberList, nullIfEmpty, v };

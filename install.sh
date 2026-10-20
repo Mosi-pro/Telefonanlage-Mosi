@@ -10,11 +10,12 @@
 # Es werden keine Fremdskripte ausgefuehrt. Mit --install-docker richtet es (nur Debian/Ubuntu, nur nach
 # ausdruecklicher Aufforderung) Docker aus dem offiziellen Docker-APT-Repository ein - Schritte siehe unten.
 #
-# Optionen:  --host-ip IP   --hostname NAME   --install-docker   --yes   --no-start   --help
+# Optionen:  --host-ip IP   --hostname NAME   --install-docker   --yes   --no-start   --skip-build   --help
+#   --skip-build  ueberspringt das Bauen der Images (z. B. Offline-Installation mit vorab geladenen/gebauten Images)
 set -euo pipefail
 source "$(dirname "$0")/scripts/lib.sh"
 
-HOST_IP_OPT=""; HOSTNAME_OPT=""; INSTALL_DOCKER=0; NO_START=0; ASSUME_YES=0
+HOST_IP_OPT=""; HOSTNAME_OPT=""; INSTALL_DOCKER=0; NO_START=0; ASSUME_YES=0; SKIP_BUILD=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --host-ip) HOST_IP_OPT="${2:?}"; shift 2 ;;
@@ -22,7 +23,8 @@ while [ $# -gt 0 ]; do
     --install-docker) INSTALL_DOCKER=1; shift ;;
     --yes|-y) ASSUME_YES=1; shift ;;
     --no-start) NO_START=1; shift ;;
-    --help|-h) sed -n '2,16p' "$0"; exit 0 ;;
+    --skip-build) SKIP_BUILD=1; shift ;;
+    --help|-h) sed -n '2,18p' "$0"; exit 0 ;;
     *) die "Unbekannte Option: $1 (siehe --help)" ;;
   esac
 done
@@ -60,7 +62,6 @@ fi
 require_docker
 ok "Docker $(docker version --format '{{.Server.Version}}' 2>/dev/null) mit Compose $(docker compose version --short 2>/dev/null)"
 if [ "${IN_LXC:-0}" = 1 ]; then
-  docker run --help >/dev/null 2>&1 || true
   if ! docker info 2>/dev/null | grep -q "Cgroup Version"; then warn "Cgroup-Informationen von Docker fehlen - in LXC ggf. 'nesting=1' setzen."; fi
 fi
 free_mb=$(df -Pm "$ROOT" | awk 'NR==2{print $4}')
@@ -77,7 +78,12 @@ if ! dc ps -q 2>/dev/null | grep -q .; then
 fi
 
 info "2/5 Konfiguration (.env)"
-detect_ip() { ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}' || true; }
+detect_ip() {
+  local a
+  a="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')" || true
+  [ -n "$a" ] || a="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
+  echo "$a"
+}
 FRESH_ADMIN_PW=""
 if [ -f .env ]; then
   ok ".env existiert bereits und wird nicht veraendert"
@@ -87,7 +93,7 @@ else
   [[ "$HOST_IP_VAL" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || die "Ungueltige IP-Adresse: $HOST_IP_VAL"
   HOSTNAME_VAL="${HOSTNAME_OPT:-$HOST_IP_VAL}"
   [[ "$HOSTNAME_VAL" =~ ^[A-Za-z0-9.-]+$ ]] || die "Ungueltiger Hostname: $HOSTNAME_VAL"
-  rnd() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
+  rnd() { openssl rand -base64 192 | tr -d '\n' | tr -dc 'A-Za-z0-9' | cut -c1-"$1"; }
   FRESH_ADMIN_PW="$(rnd 20)A9!"
   umask 077
   sed -e "s|^HOST_IP=.*|HOST_IP=${HOST_IP_VAL}|" \
@@ -110,8 +116,8 @@ mkdir -p certs
 [ "$NO_START" = 1 ] && { info "--no-start: Installation hier beendet."; exit 0; }
 
 info "3/5 Images bauen/herunterladen und Dienste starten (beim ersten Mal einige Minuten)"
-dc build || die "Der Build ist fehlgeschlagen. Haeufige Ursachen: kein Internetzugang (Paketquellen deb.debian.org, registry.npmjs.org, Docker Hub) oder DNS-Probleme im Container."
-dc pull --ignore-buildable || die "Herunterladen der Images fehlgeschlagen (Docker Hub erreichbar? Rate-Limit?)."
+[ "$SKIP_BUILD" = 1 ] || dc build || die "Der Build ist fehlgeschlagen. Haeufige Ursachen: kein Internetzugang (Paketquellen deb.debian.org, registry.npmjs.org, Docker Hub) oder DNS-Probleme im Container."
+dc pull --ignore-buildable --quiet || die "Herunterladen der Images fehlgeschlagen (Docker Hub erreichbar? Rate-Limit?)."
 dc up -d || die "Start fehlgeschlagen. In LXC: 'nesting=1' aktiv? Siehe 'docker compose logs'."
 
 info "4/5 Gesundheitspruefung (bis zu 3 Minuten)"

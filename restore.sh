@@ -31,7 +31,7 @@ if dc ps --status running --services | grep -qx db; then ./backup.sh "$ROOT/back
 info "Dienste anhalten (Datenbank bleibt)"
 dc up -d db >/dev/null
 dc stop proxy app asterisk >/dev/null 2>&1 || true
-for i in $(seq 1 30); do dc exec -T db pg_isready -q >/dev/null 2>&1 && break; sleep 1; done
+for _ in $(seq 1 30); do dc exec -T db pg_isready -q >/dev/null 2>&1 && break; sleep 1; done
 
 info "Datenbank wiederherstellen"
 DBU="$(env_get POSTGRES_USER)"; DBN="$(env_get POSTGRES_DB)"
@@ -41,8 +41,8 @@ dc exec -T db pg_restore -U "${DBU:-mosi}" -d "${DBN:-mosi}" --no-owner --exit-o
 ok "Datenbank wiederhergestellt"
 
 info "Volumes wiederherstellen"
-APP_IMAGE="$(dc images app --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | head -n1)"; APP_IMAGE="${APP_IMAGE:-mosi/app:1.0.0}"
-PROJECT="$(dc config --format json 2>/dev/null | sed -n 's/.*"name": *"\([^"]*\)".*/\1/p' | head -n1)"; PROJECT="${PROJECT:-mosi}"
+APP_IMAGE="$(dc config --images | grep '^mosi/app:' | head -n1)"; APP_IMAGE="${APP_IMAGE:-mosi/app:1.0.0}"
+PROJECT="${COMPOSE_PROJECT_NAME:-mosi}"   # entspricht "name:" in compose.yaml
 vol_untar() { # vol_untar <volume-suffix> <tarfile> <owner uid:gid oder leer>
   docker volume create "${PROJECT}_$1" >/dev/null
   docker run --rm --user root -i -v "${PROJECT}_$1:/data" --entrypoint sh "$APP_IMAGE" -c 'find /data -mindepth 1 -delete && tar -C /data -xf - && if [ -n "$0" ]; then chown -R "$0" /data; fi' "$3" < "$2"

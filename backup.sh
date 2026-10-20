@@ -19,8 +19,8 @@ dc exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$WORK
 ok "db.dump ($(du -h "$WORK/db.dump" | cut -f1))"
 
 info "Telefoniekonfiguration, Voicemail und Ansagen sichern"
-APP_IMAGE="$(dc images app --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | head -n1)"; APP_IMAGE="${APP_IMAGE:-mosi/app:1.0.0}"
-PROJECT="$(dc config --format json 2>/dev/null | sed -n 's/.*"name": *"\([^"]*\)".*/\1/p' | head -n1)"; PROJECT="${PROJECT:-mosi}"
+APP_IMAGE="$(dc config --images | grep '^mosi/app:' | head -n1)"; APP_IMAGE="${APP_IMAGE:-mosi/app:1.0.0}"
+PROJECT="${COMPOSE_PROJECT_NAME:-mosi}"   # entspricht "name:" in compose.yaml
 vol_tar() { # vol_tar <volume-suffix> <outfile>
   docker run --rm --user root -v "${PROJECT}_$1:/data:ro" --entrypoint tar "$APP_IMAGE" -C /data -cf - . > "$2"
 }

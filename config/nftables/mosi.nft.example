@@ -1,0 +1,22 @@
+#!/usr/sbin/nft -f
+# BEISPIEL fuer eine Host-Firewall in der Mosi-VM bzw. dem LXC (Docker verwaltet eigene Regeln in der Tabelle "ip filter"/"nat";
+# diese Datei ergaenzt sie in der DOCKER-USER-Kette NICHT - nutzen Sie sie als Vorlage fuer Ihre Firewall am Router/Proxmox-Firewall).
+# Ziel: Verwaltung, SIP und RTP nur aus dem LAN/VPN, nie aus dem Internet.
+define LAN = { 192.168.0.0/16, 10.0.0.0/8 }
+
+table inet mosi_example {
+  chain input {
+    type filter hook input priority 0; policy drop;
+    ct state established,related accept
+    iif lo accept
+    ip protocol icmp accept
+    tcp dport 22 ip saddr $LAN accept                 # SSH nur aus dem LAN
+    tcp dport { 80, 443 } ip saddr $LAN accept        # Dashboard + WebRTC (WSS)
+    udp dport 5060 ip saddr $LAN accept               # SIP UDP
+    tcp dport 5060 ip saddr $LAN accept               # SIP TCP
+    tcp dport 5061 ip saddr $LAN accept               # SIP TLS (nur wenn aktiviert)
+    udp dport 10000-10099 ip saddr $LAN accept        # RTP (Sprache)
+  }
+}
+# Hinweis: Docker veroeffentlicht Ports ueber die FORWARD-/NAT-Ketten. Wirksamer Schutz ist deshalb zusaetzlich BIND_IP
+# in der .env und eine Firewall am Netzwerkrand bzw. die Proxmox-Firewall fuer die VM/den Container (docs/network.md).

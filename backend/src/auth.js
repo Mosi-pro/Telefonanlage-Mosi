@@ -108,6 +108,8 @@ async function cleanup() {
   await db.query('DELETE FROM sessions WHERE expires_at < now()');
   await db.query("DELETE FROM login_attempts WHERE ts < now() - interval '30 days'");
   await db.query("DELETE FROM system_events WHERE ts < now() - interval '180 days'");
+  // Anruflisten-Aufbewahrung (Datenschutz): aeltere Eintraege werden geloescht
+  await db.query("DELETE FROM calls WHERE started < now() - ($1 || ' days')::interval", [String(config.limits.callRetentionDays)]);
 }
 
 module.exports = { hashPassword, login, logout, sessionLoader, requireRole, setCookie, bootstrapAdmin, cleanup, publicUser };

@@ -12,10 +12,9 @@ const { decrypt } = require('../crypto');
 const { probeSipUdp, probeTcp } = require('../sipprobe');
 const { DEFAULT_BLOCKED } = require('../generator');
 const { requireRole } = auth;
-const { express, h, audit, mutate, plain, nullIfEmpty, v } = require('./helpers');
+const { express, sensitiveLimit, h, audit, mutate, plain, nullIfEmpty, v } = require('./helpers');
 
 const router = express.Router();
-const sensitiveLimit = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'Zu viele Anfragen - bitte kurz warten' } });
 const loginLimit = rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Zu viele Anmeldeversuche von dieser Adresse - bitte spaeter erneut versuchen' } });
 
 // ---------------------------------------------------------------- Gesundheit (oeffentlich, minimal)

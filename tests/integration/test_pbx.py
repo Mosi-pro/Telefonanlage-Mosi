@@ -8,12 +8,18 @@ Trunk-Anbindung (simulierter Anbieter), Konfigurationsbeibehaltung nach Neustart
 Aufruf:  python3 test_pbx.py [--api http://127.0.0.1:13000] [--sip 127.0.0.1:15060]
 """
 import argparse
+import datetime
 import http.cookiejar
+import io
 import json
+import math
 import os
 import ssl
+import struct
 import sys
+import threading
 import time
+import wave
 import urllib.error
 import urllib.request
 
@@ -58,6 +64,16 @@ class Api:
             except Exception:
                 return e.code, payload
 
+    def upload(self, path, data, content_type="audio/wav"):
+        req = urllib.request.Request(self.base + path, data=data, method="PUT")
+        req.add_header("Content-Type", content_type)
+        req.add_header("X-CSRF-Token", self.csrf)
+        try:
+            with self.op.open(req, timeout=60) as r:
+                return r.status, json.loads(r.read() or b"null")
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"null")
+
     def login(self, user, pw):
         code, body = self.call("POST", "/api/login", {"username": user, "password": pw})
         if code == 200:
@@ -88,6 +104,7 @@ def main():
     sip_host, sip_port = a.sip.split(":")
     sip_port = int(sip_port)
     api = Api(a.api)
+    t0 = time.time()   # Beginn dieses Testlaufs (ignoriert Eintraege frueherer Laeufe in der Anrufliste)
 
     print("== Anmeldung / Sicherheit")
     code, _ = api.login(a.admin_user, "falsches-Passwort-123!")
@@ -100,7 +117,7 @@ def main():
     check("Health-Endpunkt meldet Asterisk online", code == 200, code)
 
     # Aufraeumen von frueheren Laeufen
-    for ep in ("ring-groups", "extensions", "trunks"):
+    for ep in ("trunks", "ring-groups", "queues", "ivrs", "schedules", "contacts", "extensions"):
         code, rows = api.call("GET", f"/api/{ep}")
         for r in rows if code == 200 else []:
             api.call("DELETE", f"/api/{ep}/{r['id']}")
@@ -160,9 +177,11 @@ def main():
     check("Auflegen beendet das Gespraech auch beim Gegenueber", ua["101"].wait_for_call_end(5))
 
     def find_call(frm, to, disp=None):
+        """Neueste Anrufliste-Zeile dieses Testlaufs (aeltere Eintraege frueherer Laeufe werden ignoriert)."""
         code, res = api.call("GET", f"/api/calls?q={to}")
         for r in res["rows"]:
-            if r["from"] == frm and r["to"] == to and (disp is None or r["disposition"] == disp):
+            started = datetime.datetime.fromisoformat(r["started"].replace("Z", "+00:00")).timestamp()
+            if started >= t0 - 3 and r["from"] == frm and r["to"] == to and (disp is None or r["disposition"] == disp):
                 return r
     c = wait_until(lambda: find_call("100", "101", "ANSWERED"), 15)
     check("Anrufliste enthaelt das echte Gespraech (ANSWERED, Dauer >= 2 s)", c and c["billsec"] >= 2, c)
@@ -189,6 +208,103 @@ def main():
     check("Rufgruppe: Audio fliesst (102 hoert 101)", ua["102"].received_pattern_ratio(PATTERN_B) > 0.9)
     ua["102"].hangup()
     ua["100"].auto_answer = True
+
+    print("== Mehrere Geraete an einer Nebenstelle klingeln parallel; Besetzt-Zustand")
+    second = UA(exts["102"]["user"], exts["102"]["pw"], sip_host, sip_port, a.local_ip, pattern=0x44)
+    check("Zweites Geraet an Nebenstelle 102 registriert", second.register() == 200)
+    ua["102"].auto_answer = False
+    ua["102"].events.clear(); second.events.clear()
+    code, seen = ua["100"].invite("102")
+    check("Beide Geraete der Nebenstelle 102 klingeln, das zweite nimmt an", code == 200 and any(e[1] == "INVITE" for e in ua["102"].events) and any(e[1] == "INVITE" for e in second.events),
+          f"{code} {ua['102'].events} {second.events}")
+    time.sleep(2)
+    check("Audio vom annehmenden zweiten Geraet kommt bei 100 an", ua["100"].received_pattern_ratio(0x44) > 0.9, f"{ua['100'].received_pattern_ratio(0x44):.2f}")
+    code2, seen2 = ua["101"].invite("102", answer_wait=10)
+    check("Besetzte Nebenstelle 102 meldet Besetzt (486/600)", code2 in (486, 600), f"{code2} {seen2}")
+    ua["100"].hangup()
+    second.unregister(); second.close()
+    ua["102"].auto_answer = True
+
+    print("== Kurzwahl, Rufumleitung, Anrufuebernahme")
+    code, ct = api.call("POST", "/api/contacts", {"name": "Kollege", "number": "101", "short_code": "*01"})
+    check("Kontakt mit Kurzwahl *01 angelegt", code == 201, f"{code} {ct}")
+    code, seen = ua["100"].invite("*01")
+    check("Kurzwahl *01 ruft Nebenstelle 101 an", code == 200, f"{code} {seen}")
+    time.sleep(1)
+    check("Kurzwahl: Audio von 101", ua["100"].received_pattern_ratio(PATTERN_B) > 0.9)
+    ua["100"].hangup()
+    code, _ = api.call("PUT", f"/api/extensions/{exts['101']['id']}", {"fwd_always": "102"})
+    check("Rufumleitung sofort 101 -> 102 gesetzt", code == 200, code)
+    code, seen = ua["100"].invite("101")
+    check("Anruf an 101 wird zu 102 umgeleitet", code == 200, f"{code} {seen}")
+    time.sleep(1)
+    check("Umleitung: Audio von 102", ua["100"].received_pattern_ratio(PATTERN_C) > 0.9, f"{ua['100'].received_pattern_ratio(PATTERN_C):.2f}")
+    ua["100"].hangup()
+    api.call("PUT", f"/api/extensions/{exts['101']['id']}", {"fwd_always": ""})
+    code, e = api.call("PUT", f"/api/extensions/{exts['101']['id']}", {"fwd_always": "0301234567"})
+    check("Umleitung auf externe Nummer ohne externe Berechtigung wird abgelehnt", code == 400, f"{code} {e}")
+    api.call("PUT", f"/api/extensions/{exts['102']['id']}", {"pickup_allowed": True})
+    ua["101"].auto_answer = False
+    res = []
+    th = threading.Thread(target=lambda: res.append(ua["100"].invite("101", answer_wait=20)))
+    th.start()
+    time.sleep(2.5)
+    code, seen = ua["102"].invite("**101")
+    th.join(timeout=25)
+    check("Anrufuebernahme: 102 holt den bei 101 klingelnden Ruf von 100 heran", code == 200 and res and res[0][0] == 200, f"{code} {seen} {res}")
+    time.sleep(1)
+    check("Anrufuebernahme: 100 spricht mit 102 (Audio beidseitig)", ua["100"].received_pattern_ratio(PATTERN_C) > 0.9 and ua["102"].received_pattern_ratio(PATTERN_A) > 0.9)
+    ua["102"].hangup()
+    ua["100"].hangup()
+    ua["101"].auto_answer = True
+    api.call("PUT", f"/api/extensions/{exts['102']['id']}", {"pickup_allowed": False})
+    code, seen = ua["102"].invite("**100", answer_wait=5)
+    check("Anrufuebernahme ohne Berechtigung wird abgewiesen", code is None or code >= 400, f"{code} {seen}")
+
+    print("== Warteschlange 800 (100, 101)")
+    code, q = api.call("POST", "/api/queues", {"number": "800", "name": "Hotline", "members": ["100", "101"], "strategy": "ringall", "timeout": 10, "max_wait": 60})
+    check("Warteschlange angelegt", code == 201, f"{code} {q}")
+    code, seen = ua["102"].invite("800", answer_wait=25)
+    check("Anruf an die Warteschlange wird von einem Mitglied angenommen", code == 200, f"{code} {seen}")
+    time.sleep(1)
+    ua["102"].rx_payloads = []          # Verbindungsgeraeusche/Ansagen am Anfang ignorieren
+    time.sleep(2)
+    heard = max(ua["102"].received_pattern_ratio(PATTERN_A), ua["102"].received_pattern_ratio(PATTERN_B))
+    check("Warteschlange: Audio vom annehmenden Mitglied", heard > 0.9, f"{heard:.2f}")
+    ua["102"].hangup()
+    code, e = api.call("POST", "/api/queues", {"number": "801", "name": "Leer", "members": [], "strategy": "ringall", "fallback": "vm:101"})
+    check("Warteschlange mit Voicemail-Ausweichziel angelegt", code == 201, f"{code} {e}")
+    code, seen = ua["102"].invite("801", answer_wait=10)
+    check("Leere Warteschlange leitet sofort auf das Ausweichziel (Voicemail) um", code == 200, f"{code} {seen}")
+    time.sleep(1)
+    ua["102"].hangup()
+
+    print("== Telefonmenue (IVR) mit Ansage und Tastenwahl")
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(8000)
+        w.writeframes(b"".join(struct.pack("<h", int(12000 * math.sin(2 * math.pi * 440 * i / 8000))) for i in range(8000 * 3)))
+    code, iv = api.call("POST", "/api/ivrs", {"number": "900", "name": "Menue", "options": [{"digit": "1", "target": "101"}, {"digit": "2", "target": "hangup"}], "timeout": 8, "retries": 2, "fallback": "hangup"})
+    check("Telefonmenue angelegt", code == 201, f"{code} {iv}")
+    code, up = api.upload(f"/api/ivrs/{iv['id']}/greeting", buf.getvalue())
+    check("Ansage (WAV) hochgeladen und uebernommen", code == 200, f"{code} {up}")
+    code, bad = api.upload(f"/api/ivrs/{iv['id']}/greeting", b"kein wav")
+    check("Ungueltige Ansage-Datei wird abgelehnt", code == 400, f"{code} {bad}")
+    code, seen = ua["102"].invite("900", answer_wait=10)
+    check("Telefonmenue nimmt den Anruf an", code == 200, f"{code} {seen}")
+    time.sleep(2)
+    tone = [p for p in ua["102"].rx_payloads if len(set(p)) > 8]
+    check("Ansage wird abgespielt (Ton-Audio kommt an)", len(tone) > 40, f"{len(tone)} von {len(ua['102'].rx_payloads)} Paketen")
+    ua["102"].send_dtmf("1")
+    time.sleep(0.5)
+    ua["102"].rx_payloads = []
+    time.sleep(3)
+    check("Taste 1 verbindet mit Nebenstelle 101 (Audio von 101)", ua["102"].received_pattern_ratio(PATTERN_B) > 0.8, f"{ua['102'].received_pattern_ratio(PATTERN_B):.2f} von {len(ua['102'].rx_payloads)}")
+    ua["102"].hangup()
+    api.call("DELETE", f"/api/ivrs/{iv['id']}")
+    api.call("DELETE", f"/api/queues/{q['id']}")
+    api.call("DELETE", f"/api/queues/{e['id']}")
+    api.call("DELETE", f"/api/contacts/{ct['id']}")
 
     print("== Voicemail: 101 hebt nicht ab")
     ua["101"].auto_answer = False
@@ -242,6 +358,31 @@ def main():
     check("Ausgehender Anruf steht in der Anrufliste (Richtung outbound)", c and c["direction"] == "outbound", c)
     code, tr = api.call("GET", "/api/trunks")
     check("Trunk-Status wird angezeigt", code == 200 and tr[0]["status"] in ("ip", "registered"), tr)
+    print("== Eingehende Anrufe vom Anbieter: Rufnummer -> Nebenstelle, Zeitplan, unbekannte Nummer")
+    code, n1 = api.call("POST", "/api/trunk-numbers", {"trunk_id": t["id"], "number": "0301234567", "label": "Zentrale", "dest_open": "101", "dest_closed": "hangup"})
+    check("Eingehende Rufnummer angelegt", code == 201, f"{code} {n1}")
+    ua["101"].events.clear()
+    code, seen = provider.invite("0301234567", answer_wait=10)
+    check("Eingehender Anruf vom Anbieter klingelt bei 101 und wird angenommen", code == 200, f"{code} {seen}")
+    time.sleep(2)
+    check("Eingehend: Audio in beide Richtungen", provider.received_pattern_ratio(PATTERN_B) > 0.9 and ua["101"].received_pattern_ratio(0x22) > 0.9,
+          f"{provider.received_pattern_ratio(PATTERN_B):.2f}/{ua['101'].received_pattern_ratio(0x22):.2f}")
+    provider.hangup()
+    c = wait_until(lambda: find_call("0301234567", "0301234567", "ANSWERED") or next((r for r in api.call("GET", "/api/calls?direction=inbound")[1]["rows"] if r["disposition"] == "ANSWERED"), None), 15)
+    check("Eingehender Anruf steht in der Anrufliste (Richtung inbound)", c and c["direction"] == "inbound", c)
+    code, sch = api.call("POST", "/api/schedules", {"name": "Nachtschaltung", "mode": "closed", "rules": [], "holidays": []})
+    check("Zeitplan (dauerhaft geschlossen) angelegt", code == 201, f"{code} {sch}")
+    code, _ = api.call("PUT", f"/api/trunk-numbers/{n1['id']}", {"schedule_id": sch["id"], "dest_closed": "vm:101", "dest_open": "101"})
+    check("Rufnummer mit Zeitplan verknuepft (geschlossen -> Voicemail 101)", code == 200, code)
+    ua["101"].events.clear()
+    code, seen = provider.invite("0301234567", answer_wait=10)
+    check("Ausserhalb der Zeiten antwortet die Voicemail statt Nebenstelle 101", code == 200 and not any(e[1] == "INVITE" for e in ua["101"].events), f"{code} {ua['101'].events}")
+    if code == 200:
+        time.sleep(1)
+        provider.hangup()
+    code, seen = provider.invite("0309999999", answer_wait=6)
+    check("Anruf auf nicht zugeordnete Nummer wird abgewiesen", code is not None and code >= 400, f"{code} {seen}")
+    api.call("DELETE", f"/api/schedules/{sch['id']}")
     provider.close()
 
     print("== Ungueltige Konfiguration wird abgelehnt, laufender Betrieb bleibt erhalten")

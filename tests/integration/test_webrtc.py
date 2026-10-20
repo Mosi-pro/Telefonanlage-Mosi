@@ -41,6 +41,25 @@ def main():
     check("SIP-Geraet 101 empfaengt Audio vom Browser (>100 Pakete, nicht konstant)", len(rx) > 100 and varied, f"{len(rx)} Pakete")
     check("Stummschaltung im Browser bedienbar", "aus" in (out.get("muteLabel") or ""), out.get("muteLabel"))
     check("Browser beendet Gespraech", ua.wait_for_call_end(5) or out.get("endState"), out.get("endState"))
+    # --- Eingehender Anruf an das Browsertelefon (Nebenstelle 100): SIP-Geraet 101 ruft an, Browser klingelt und nimmt an
+    print("== Eingehender Anruf an das Browsertelefon")
+    ua.close()
+    ua = UA(conn["username"], conn["password"], host, int(port), a.local_ip, pattern=0x42)
+    ua.register()
+    proc = subprocess.Popen(["node", os.path.join(here, "webrtc_browser.js"), a.api, a.admin_user, a.admin_pass, "INCOMING", "5"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+    ready = proc.stdout.readline()
+    check("Browser ist bereit (registriert)", "ready" in ready, ready)
+    time.sleep(1)
+    code, seen = ua.invite("100", answer_wait=30)
+    check("Anruf von 101 an das Browsertelefon wird vom Browser angenommen", code == 200, f"{code} {seen}")
+    time.sleep(6)
+    ua.hangup()
+    out2 = json.loads(proc.communicate(timeout=60)[0].strip().splitlines()[-1])
+    st2 = out2.get("stats") or {}
+    check("Browser hat geklingelt und die Anruferkennung angezeigt", out2.get("ringing") and "101" in (out2.get("caller") or ""), out2)
+    check("Eingehend: DTLS-SRTP verbunden und Audio in beide Richtungen", st2.get("dtls") == "connected" and st2.get("inboundPackets", 0) > 100 and st2.get("outboundPackets", 0) > 100, st2)
+    check("Eingehend: Gegenseite legt auf, Browser zeigt Ende", "beendet" in (out2.get("endState") or ""), out2.get("endState"))
     ua.close()
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)} von {len(results)} Pruefungen bestanden")

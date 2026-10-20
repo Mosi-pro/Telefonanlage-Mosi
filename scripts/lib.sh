@@ -3,7 +3,7 @@
 # (wird nur per "source" eingebunden)
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+cd "$ROOT" || exit 1
 
 if [ -t 1 ]; then C_OK=$'\033[32m'; C_ERR=$'\033[31m'; C_WARN=$'\033[33m'; C_B=$'\033[1m'; C_0=$'\033[0m'; else C_OK=; C_ERR=; C_WARN=; C_B=; C_0=; fi
 info() { echo "${C_B}==>${C_0} $*"; }

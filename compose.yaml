@@ -21,7 +21,10 @@ services:
     networks: [mosi_net]                    # keine veroeffentlichten Ports
 
   asterisk:
-    build: ./telephony                      # Asterisk aus den Debian-12-Paketen
+    build:                                  # Asterisk aus den Debian-12-Paketen
+      context: ./telephony
+      args:
+        DEBIAN_IMAGE: ${DEBIAN_IMAGE:-debian:12.15-slim}
     image: mosi/asterisk:1.0.0
     restart: unless-stopped
     stop_grace_period: 20s
@@ -35,13 +38,13 @@ services:
       SIP_TLS_PORT: ${SIP_TLS_PORT:-5061}
       SIP_TLS_ENABLED: ${SIP_TLS_ENABLED:-false}
       RTP_START: ${RTP_START:-10000}
-      RTP_END: ${RTP_END:-10199}
+      RTP_END: ${RTP_END:-10099}
       SIP_ALLOWED_NETS: ${SIP_ALLOWED_NETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}
       TZ: ${TZ:-Europe/Berlin}
     ports:
       - "${BIND_IP:-0.0.0.0}:${SIP_PORT:-5060}:${SIP_PORT:-5060}/udp"
       - "${BIND_IP:-0.0.0.0}:${SIP_PORT:-5060}:${SIP_PORT:-5060}/tcp"
-      - "${BIND_IP:-0.0.0.0}:${RTP_START:-10000}-${RTP_END:-10199}:${RTP_START:-10000}-${RTP_END:-10199}/udp"
+      - "${BIND_IP:-0.0.0.0}:${RTP_START:-10000}-${RTP_END:-10099}:${RTP_START:-10000}-${RTP_END:-10099}/udp"
     volumes:
       - asterisk_generated:/etc/asterisk/mosi
       - voicemail:/var/spool/asterisk/voicemail
@@ -53,7 +56,10 @@ services:
         ipv4_address: 172.29.0.10
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22.23.3-bookworm-slim}
     image: mosi/app:1.0.0
     restart: unless-stopped
     depends_on:
@@ -72,7 +78,7 @@ services:
       SIP_TLS_PORT: ${SIP_TLS_PORT:-5061}
       SIP_TLS_ENABLED: ${SIP_TLS_ENABLED:-false}
       RTP_START: ${RTP_START:-10000}
-      RTP_END: ${RTP_END:-10199}
+      RTP_END: ${RTP_END:-10099}
       SIP_ALLOWED_NETS: ${SIP_ALLOWED_NETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}
       ADMIN_ALLOWED_NETS: ${ADMIN_ALLOWED_NETS:-private_ranges}
       STUN_SERVER: ${STUN_SERVER:-}
@@ -81,6 +87,7 @@ services:
       TURN_PASSWORD: ${TURN_PASSWORD:-}
       LOGIN_MAX_FAILURES: ${LOGIN_MAX_FAILURES:-5}
       LOGIN_LOCK_MINUTES: ${LOGIN_LOCK_MINUTES:-15}
+      CALL_RETENTION_DAYS: ${CALL_RETENTION_DAYS:-365}
       TZ: ${TZ:-Europe/Berlin}
     volumes:
       - asterisk_generated:/etc/asterisk/mosi

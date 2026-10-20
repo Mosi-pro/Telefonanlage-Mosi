@@ -162,15 +162,37 @@ class UA:
         port = re.search(r"m=audio (\d+)", sdp)
         return (ip.group(1), int(port.group(1))) if ip and port else None
 
+    def send_dtmf(self, digit, duration_ms=240):
+        """Sendet eine Taste als RFC 4733 telephone-event (Payload-Typ 101) in den laufenden RTP-Strom."""
+        self.dtmf_pending = (digit, duration_ms)
+
     def start_media(self, remote):
         self.tx_stop.clear()
+        self.dtmf_pending = None
+        codes = {**{str(i): i for i in range(10)}, "*": 10, "#": 11}
 
         def run():
             seq, ts, ssrc = 0, 0, random.getrandbits(32)
             payload = bytes([self.pattern]) * 160
             while not self.tx_stop.is_set() and self.running:
-                pkt = struct.pack("!BBHII", 0x80, 0, seq & 0xFFFF, ts & 0xFFFFFFFF, ssrc) + payload
+                pend, self.dtmf_pending = self.dtmf_pending, None
                 try:
+                    if pend:
+                        ev, dur_ms = codes[pend[0]], pend[1]
+                        start_ts, dur = ts, 0
+                        for i in range(dur_ms // 20):
+                            dur += 160
+                            hdr_ = struct.pack("!BBHII", 0x80, (0x80 if i == 0 else 0) | 101, seq & 0xFFFF, start_ts & 0xFFFFFFFF, ssrc)
+                            self.rtp.sendto(hdr_ + struct.pack("!BBH", ev, 10, dur), remote)
+                            seq += 1
+                            time.sleep(0.02)
+                        for _ in range(3):
+                            hdr_ = struct.pack("!BBHII", 0x80, 101, seq & 0xFFFF, start_ts & 0xFFFFFFFF, ssrc)
+                            self.rtp.sendto(hdr_ + struct.pack("!BBH", ev, 0x80 | 10, dur), remote)
+                            seq += 1
+                        ts += dur + 160
+                        continue
+                    pkt = struct.pack("!BBHII", 0x80, 0, seq & 0xFFFF, ts & 0xFFFFFFFF, ssrc) + payload
                     self.rtp.sendto(pkt, remote)
                 except OSError:
                     return
@@ -218,6 +240,7 @@ class UA:
             if final is None:
                 return None, seen
             code = int(final["start"].split()[1])
+            self.last_final = final["raw"]
             to_hdr = hdr(final, "to")
             if code == 401 or code == 407:
                 self._send(f"ACK {uri} SIP/2.0\r\nVia: SIP/2.0/UDP {self.local_ip}:{self.lport};branch={branch}\r\nMax-Forwards: 70\r\n"
