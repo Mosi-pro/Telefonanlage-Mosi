@@ -37,7 +37,8 @@ Auf einem neuen Server zuerst Repository klonen und `./install.sh --no-start`, d
 ## Update (geordnet)
 
 ```bash
-./update.sh            # fragt nach Bestätigung;  --yes ohne Rückfrage;  --no-git wenn Sie das Repository selbst aktualisieren
+./update.sh            # fragt nach Bestätigung;  --yes ohne Rückfrage;  --no-git wenn Sie das Repository selbst aktualisieren;
+                       # --skip-build wenn die Images vorab gebaut/geladen wurden (Offline-Update)
 ```
 1. Zustand prüfen, 2. **automatisches Backup** (`backups/pre-update`; ohne Backup kein Update), 3. `git pull --ff-only`, 4. Images neu bauen (`--pull`, Basis-Images sind auf feste Versionen gepinnt), Dienste ersetzen, 5. Healthcheck.
 Persistente Daten (Docker-Volumes) werden **nie** gelöscht; Datenbank-Migrationen laufen beim Start des Backends automatisch und versioniert. Schlägt der Healthcheck fehl, nennt das Skript den Rückweg (vorherige Version auschecken, `docker compose up -d --build`, bei Datenproblemen `restore.sh`).

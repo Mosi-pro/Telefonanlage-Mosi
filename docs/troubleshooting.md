@@ -32,7 +32,8 @@ Erster Schritt immer: `./healthcheck.sh` und `docker compose ps` / `docker compo
 1. *Nebenstellen → Verbindung / Diagnose*: „Letzter Fehler“ lesen (Tabelle in `docs/phones.md`).
 2. Erreicht das Gerät die Anlage? Vom Gerätenetz: `nc -vzu <HOST_IP> 5060` bzw. Telefon-Diagnose. *Netzwerk und Sicherheit* zeigt, ob SIP in der Anlage antwortet.
 3. Live in Asterisk beobachten: `docker compose exec asterisk asterisk -rx "pjsip set logger on"` und `docker compose logs -f asterisk` (danach `pjsip set logger off`).
-4. Häufig: falscher Benutzername (nicht die Durchwahl, wenn abweichend), Passwort mit Leerzeichen kopiert, Netz nicht in `SIP_ALLOWED_NETS`, Firewall blockiert UDP 5060, Gerät nutzt TLS ohne aktivierte TLS-Option.
+4. **Gerät bekommt „401 Unauthorized“, obwohl Benutzername/Passwort stimmen:** Die Quelladresse liegt nicht in `SIP_ALLOWED_NETS` (Asterisk antwortet bei gesperrten Netzen wie bei falschen Zugangsdaten). Im Dashboard unter *Netzwerk und Sicherheit → Fehlgeschlagene SIP-Anmeldungen* steht dann „Zugriff durch Netzwerkfilter blockiert". Netz ergänzen (z. B. `SIP_ALLOWED_NETS=192.168.0.0/16,10.0.0.0/8,203.0.113.0/24`), `docker compose up -d`.
+5. Häufig: falscher Benutzername (nicht die Durchwahl, wenn abweichend), Passwort mit Leerzeichen kopiert, Netz nicht in `SIP_ALLOWED_NETS`, Firewall blockiert UDP 5060, Gerät nutzt TLS ohne aktivierte TLS-Option.
 
 ## Kein oder einseitiges Audio
 

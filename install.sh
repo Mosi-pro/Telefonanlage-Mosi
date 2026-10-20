@@ -93,6 +93,10 @@ else
   [[ "$HOST_IP_VAL" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || die "Ungueltige IP-Adresse: $HOST_IP_VAL"
   HOSTNAME_VAL="${HOSTNAME_OPT:-$HOST_IP_VAL}"
   [[ "$HOSTNAME_VAL" =~ ^[A-Za-z0-9.-]+$ ]] || die "Ungueltiger Hostname: $HOSTNAME_VAL"
+  case "$HOST_IP_VAL" in
+    10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) ;;
+    *) warn "HOST_IP ${HOST_IP_VAL} liegt nicht in einem privaten Adressbereich. SIP_ALLOWED_NETS und ADMIN_ALLOWED_NETS in der .env erlauben standardmaessig NUR private Netze - tragen Sie Ihr Netz dort ein, sonst koennen sich Geraete nicht registrieren." ;;
+  esac
   rnd() { openssl rand -base64 192 | tr -d '\n' | tr -dc 'A-Za-z0-9' | cut -c1-"$1"; }
   FRESH_ADMIN_PW="$(rnd 20)A9!"
   umask 077

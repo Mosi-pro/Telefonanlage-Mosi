@@ -264,7 +264,7 @@ def main():
     print("== Echo-Test *43")
     code, seen = ua["100"].invite("*43", answer_wait=8)
     check("Echo-Test *43 nimmt den Anruf an", code == 200, f"{code} {seen}")
-    time.sleep(9)       # Ansage "demo-echotest" abwarten, danach kommt die eigene Stimme zurueck
+    time.sleep(3)       # Signalton abwarten, danach kommt die eigene Stimme zurueck
     ua["100"].rx_payloads = []
     time.sleep(2)
     check("Echo-Test: eigenes Audio kommt zurueck (Medienpfad in beide Richtungen)", ua["100"].received_pattern_ratio(PATTERN_A) > 0.8, f"{ua['100'].received_pattern_ratio(PATTERN_A):.2f}")

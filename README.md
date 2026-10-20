@@ -19,7 +19,7 @@ Proxmox-Host selbst wird nicht verändert.
 
 | Bereich | Umsetzung |
 |---|---|
-| Telefonie-Engine | **Asterisk** (PJSIP) in eigenem Container – keine Simulation. Interne Gespräche, Besetzt/Nicht erreichbar/Timeout, Rufumleitung (sofort/besetzt/keine Antwort/nicht erreichbar), **mehrere Geräte pro Nebenstelle klingeln parallel** (Tischtelefon + App + Browser), Rufgruppen, Warteschlangen, Telefonmenüs (IVR), Zeitpläne/Nachtschaltung, Voicemail, Anrufübernahme (`**100`), Kurzwahlen, Echo-Test `*43` |
+| Telefonie-Engine | **Asterisk** (PJSIP) in eigenem Container – keine Simulation. Interne Gespräche, Besetzt/Nicht erreichbar/Timeout, Rufumleitung (sofort/besetzt/keine Antwort/nicht erreichbar), **mehrere Geräte pro Nebenstelle klingeln parallel** (Tischtelefon + App + Browser), Rufgruppen, Warteschlangen, Telefonmenüs (IVR), Zeitpläne/Nachtschaltung, Voicemail, Anrufübernahme (`**100`), Kurzwahlen, Echo-Test `*43` (Signalton, danach hören Sie sich selbst – prüft den Medienpfad) |
 | Endgeräte | SIP-Tischtelefone (UDP/TCP), Smartphone-SIP-Apps, **Browsertelefon (WebRTC, WSS + DTLS-SRTP)** |
 | Extern | Konfigurierbare **SIP-Trunks** (Registrierung oder IP-Authentifizierung), eingehende Rufnummern mit Zeitplan-Routing, ausgehende Wählregeln, Absenderrufnummer, Kanal-Limits |
 | Dashboard | Dunkles, minimalistisches deutsches Web-UI mit 15 Bereichen; alle Werte stammen aus Backend, Datenbank und Asterisk (echte Statusabfragen) |

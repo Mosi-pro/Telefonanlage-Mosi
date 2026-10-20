@@ -306,7 +306,7 @@ function generate(state) {
 
   // Funktionen
   L('[mosi-features]',
-    'exten => *43,1,Answer()', ' same => n,Wait(1)', ' same => n,Playback(demo-echotest)', ' same => n,Echo()', ' same => n,Hangup()',
+    'exten => *43,1,Answer()', ' same => n,Wait(1)', ' same => n,Playback(beep)', ' same => n,Echo()', ' same => n,Hangup()',
     'exten => *97,1,Answer()', ' same => n,Wait(1)', ' same => n,VoiceMailMain(${MOSI_EXT}@default,s)', ' same => n,Hangup()',
     'exten => *98,1,Answer()', ' same => n,Wait(1)', ' same => n,VoiceMailMain(@default)', ' same => n,Hangup()',
     'exten => _**X.,1,GotoIf($["${MOSI_PICKUP}"="1"]?ok)', ' same => n,Playback(ss-noservice,noanswer)', ' same => n,Hangup(21)',
