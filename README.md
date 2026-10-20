@@ -5,7 +5,7 @@ SIP-Trunk-Anbindung. Läuft per Docker Compose in einer **VM oder einem LXC-Cont
 Proxmox-Host selbst wird nicht verändert.
 
 > **Ehrlicher Stand:** Der Funktionsumfang unten ist umgesetzt und getestet (siehe [Teststatus](#teststatus)).
-> Was *nicht* getestet werden konnte (echter SIP-Anbieter, echte Tischtelefone, Proxmox selbst, SIP-TLS), ist
+> Was *nicht* getestet werden konnte (echter SIP-Anbieter, echte Tischtelefone/Smartphones, Proxmox selbst, Registrierung über SIP-TLS), ist
 > ausdrücklich im Abschnitt [Bekannte Grenzen](#bekannte-grenzen) aufgeführt.
 
 ## Inhalt
@@ -135,21 +135,24 @@ Siehe [`docs/troubleshooting.md`](docs/troubleshooting.md): Installation (LXC/Do
 
 ## Teststatus
 
-Folgendes wurde **tatsächlich ausgeführt** (Entwicklungsumgebung: Linux-VM mit Docker, echtes Asterisk, echtes PostgreSQL, echter Chromium):
+Folgendes wurde **tatsächlich ausgeführt** – in einer Linux-VM mit Docker, gegen eine **frische Installation aus einem sauberen Git-Checkout** per `./install.sh --skip-build` (echtes Asterisk, echtes PostgreSQL, echter Chromium). `--skip-build` war nötig, weil die Images in dieser Umgebung vorab gebaut werden mussten (siehe Hinweis zum Debian-Paketarchiv unter *Bekannte Grenzen*); die Dockerfiles wurden mit `docker build --network host` gebaut – das Telefonie-Image mit `ubuntu:24.04` statt `debian:12.15-slim` als Basis, das App-Image mit einer um das Sandbox-Zertifikat erweiterten Node-Basis. Der unveränderte Build über `docker compose build` mit den gepinnten Basis-Images wurde hier **nicht** ausgeführt:
 
 | Test | Ergebnis |
 |---|---|
-| Backend-Unit-Tests (`cd backend && npm test`) – Generator, Validierung, Krypto, CDR | 25/25 bestanden |
-| Integrationstest `tests/integration/test_pbx.py` gegen den Compose-Stack: Nebenstellen anlegen, Digest-Registrierung, abgelehnte Fehlanmeldung, interner Anruf mit **Audio in beide Richtungen** (RTP-Pakete verglichen), Anrufliste, Nicht-erreichbar/Timeout, Rufgruppe, Voicemail inkl. Aufnahme und Abruf, Sperre externer Anrufe, Trunk (simulierter Anbieter) ausgehend/eingehend inkl. Zeitplan, Betrugsschutz, Neustart der Engine | siehe unten |
-| `tests/integration/test_webrtc.py`: Chromium (Browsertelefon) → WSS über Caddy → Asterisk → SIP-Gerät, DTLS-SRTP verbunden, Audio beidseitig, DTMF/Stumm | 9/9 bestanden |
-| `backup.sh` → Daten ändern → `restore.sh` → Daten und Konfiguration wieder vorhanden, Healthcheck grün | bestanden |
-| `healthcheck.sh`, Neustart der Engine (`docker compose restart asterisk`) | bestanden |
+| Backend-Unit-Tests (`cd backend && npm test`): Generator, Validierung/Injection, Krypto, CDR | 25/25 bestanden |
+| `tests/integration/test_pbx.py` (Compose-Stack, 98 Prüfungen): Anmeldung/401/CSRF, Nebenstellen anlegen (Doppelte/Injection abgelehnt), Digest-Registrierung (richtig/falsch/unbekannt) und Fehlerdiagnose, **interner Anruf mit Audio in beide Richtungen** (RTP-Pakete verglichen), Auflegen, Anrufliste (Dauer/Richtung), nicht erreichbar, Klingel-Timeout, mehrere Geräte pro Nebenstelle parallel, Besetzt, Rufgruppe, Rufumleitung (sofort, bei Nichtannahme, bei Nichterreichbarkeit; extern ohne Berechtigung abgelehnt), Kurzwahl, Anrufübernahme, Warteschlange (+ leere Queue → Voicemail), Telefonmenü mit WAV-Ansage und DTMF-Tastenwahl, Echo-Test, Voicemail (Aufnahme + Abruf), Sperre externer/Auslands-/Mehrwertanrufe, **SIP-Trunk gegen simulierten Anbieter** ausgehend + eingehend inkl. Audio, Zeitplan/Nachtschaltung, Ablehnung ungültiger Konfiguration, **Neustart der Telefonie-Engine** (Konfiguration + Anrufe danach funktionsfähig), Audit-Log | 98/98 bestanden |
+| `tests/integration/test_webrtc.py`: Chromium-Browsertelefon ↔ SIP-Gerät in **beide Richtungen** (ausgehend und eingehend/Klingeln/Annehmen), WSS über Caddy, **DTLS-SRTP verbunden**, Audio beidseitig, DTMF, Stumm, Auflegen | 14/14 bestanden |
+| `tests/integration/ui_smoke.js`: Bedienung des Dashboards im Browser (Anmeldung, Nebenstelle anlegen, Fehlerdialog, Rollen, CSRF, Mobilansicht, keine CSP-Fehler) | bestanden |
+| `install.sh` aus frischem Checkout inkl. Gesundheitsprüfung; `backup.sh` → Daten ändern → `restore.sh`; `update.sh` (Backup → Neustart der Dienste → Healthcheck); `uninstall.sh --purge` | bestanden |
+| **Neustart-Test:** Docker-Daemon beendet und neu gestartet (entspricht Neustart der VM/des Containers): alle Dienste kamen von selbst gesund zurück, Nebenstellen/Trunks/Anrufliste/Konfiguration vorhanden | bestanden |
+| Eigenes HTTPS-Zertifikat (`MOSI_TLS=/certs/...`, Zertifikatskette per curl geprüft); SIP-TLS-Transport lädt und beantwortet TLS-Handshake auf Port 5061 | bestanden (Registrierung/Anrufe über SIP-TLS **nicht** getestet) |
+| `shellcheck` der Skripte | ohne Warnungen |
 
-Details und Wiederholung: [`docs/testing.md`](docs/testing.md).
+Wiederholung und Details: [`docs/testing.md`](docs/testing.md). Die Tests fanden u. a. diese Fehler, die behoben wurden (Auswahl): Reconnect des AMI-Clients, Browser-Authentifizierung (eigener Auth-Benutzer), `Dial(PJSIP/…)` ruft nur *einen* Kontakt an, Pickup-Syntax, CDR-Zeitzone, JsSIP kann Container-Hostnamen nicht parsen.
 
 ## Bekannte Grenzen
 
-* **Nicht getestet:** Betrieb auf einem echten Proxmox-Server (LXC-Features/VM) – die Anleitung folgt der Docker-Dokumentation, wurde aber nicht auf Proxmox ausgeführt; **echter SIP-Anbieter** (Trunk-Logik wurde nur gegen einen simulierten Anbieter im selben Netz geprüft, Interoperabilität mit konkreten Anbietern kann Anpassungen erfordern); **echte Tischtelefone und Smartphone-Apps** (getestet mit einem eigenen Test-UA und Chromium); **SIP über TLS**; NAT-Szenarien über Netzgrenzen hinweg; Multi-Arch (ARM).
+* **Nicht getestet:** Betrieb auf einem echten Proxmox-Server (LXC-Features/VM) – die Anleitung folgt der Docker-Dokumentation, wurde aber nicht auf Proxmox ausgeführt; **echter SIP-Anbieter** (Trunk-Logik wurde nur gegen einen simulierten Anbieter im selben Netz geprüft, Interoperabilität mit konkreten Anbietern kann Anpassungen erfordern); **echte Tischtelefone und Smartphone-Apps** (getestet mit einem eigenen Test-UA und Chromium); **Registrierung und Anrufe über SIP-TLS** (nur Transport und Handshake getestet); NAT-Szenarien über Netzgrenzen hinweg; Multi-Arch (ARM).
 * Der Telefonie-Container wird aus dem Debian-12-Paketarchiv gebaut. In der Entwicklungsumgebung war `deb.debian.org` nicht erreichbar; das Image wurde deshalb mit dem inhaltlich gleichen Asterisk-20-Paket aus Ubuntu 24.04 gebaut und getestet. Der Debian-Build ist per `docker compose build` bei Internetzugang vorgesehen und wird von `install.sh` ausgeführt – bei Problemen bitte Issue anlegen.
 * Browsertelefonie braucht **HTTPS mit vertrauenswürdigem Zertifikat** und funktioniert über NAT/Mobilfunk nicht ohne VPN oder STUN/TURN. Sie funktioniert nicht „über jedes Netzwerk“.
 * Notrufe über VoIP sind nicht garantiert (Standort, Anbieter). Nicht als alleinige Notrufmöglichkeit verwenden.
