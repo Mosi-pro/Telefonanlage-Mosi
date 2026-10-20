@@ -120,7 +120,7 @@ mkdir -p certs && chmod 755 certs   # Container (UID 10001/root) muessen das Ver
 [ "$NO_START" = 1 ] && { info "--no-start: Installation hier beendet."; exit 0; }
 
 info "3/5 Images bauen/herunterladen und Dienste starten (beim ersten Mal einige Minuten)"
-[ "$SKIP_BUILD" = 1 ] || dc build || die "Der Build ist fehlgeschlagen. Haeufige Ursachen: kein Internetzugang (Paketquellen deb.debian.org, registry.npmjs.org, Docker Hub) oder DNS-Probleme im Container."
+[ "$SKIP_BUILD" = 1 ] || dc build || die "Der Build ist fehlgeschlagen. Haeufige Ursachen: kein Internetzugang (Paketquellen archive.ubuntu.com, registry.npmjs.org, Docker Hub) oder DNS-Probleme im Container."
 dc pull --ignore-buildable --quiet || die "Herunterladen der Images fehlgeschlagen (Docker Hub erreichbar? Rate-Limit?)."
 dc up -d || die "Start fehlgeschlagen. In LXC: 'nesting=1' aktiv? Siehe 'docker compose logs'."
 

@@ -1,7 +1,8 @@
-# Mosi Cloud PBX - Telefonie-Engine (Asterisk aus den offiziellen Debian-Paketen)
-# Herkunft: Debian 12 "bookworm" Paketarchiv (deb.debian.org), Asterisk-Lizenz: GPL-2.0
-ARG DEBIAN_IMAGE=debian:12.15-slim
-FROM ${DEBIAN_IMAGE}
+# Mosi Cloud PBX - Telefonie-Engine (Asterisk aus den Paketen von Ubuntu 24.04 LTS)
+# Herkunft: Ubuntu-24.04-Paketarchiv (archive.ubuntu.com, Asterisk 20.6.x), Asterisk-Lizenz: GPL-2.0
+# (Debian 12 enthaelt kein Asterisk-Paket mehr - deshalb Ubuntu.)
+ARG BASE_IMAGE=ubuntu:24.04
+FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \

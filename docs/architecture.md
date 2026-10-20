@@ -4,7 +4,7 @@
 
 | Dienst | Image | Aufgabe | Veröffentlichte Ports |
 |---|---|---|---|
-| `asterisk` | selbst gebaut aus `telephony/` (Debian 12 + Asterisk-Pakete) | SIP-Registrar/Vermittlung/Medien, Voicemail, Queues, WebSocket-Transport | 5060/udp+tcp, RTP-Bereich/udp (+5061/tcp mit `compose.tls.yaml`) |
+| `asterisk` | selbst gebaut aus `telephony/` (Ubuntu 24.04 + Asterisk-Pakete) | SIP-Registrar/Vermittlung/Medien, Voicemail, Queues, WebSocket-Transport | 5060/udp+tcp, RTP-Bereich/udp (+5061/tcp mit `compose.tls.yaml`) |
 | `app` | selbst gebaut aus `Dockerfile` (Node.js) | REST-API, Dashboard (statische Dateien), Konfigurationsgenerator, Überwachung, CDR-Import | keine (nur über `proxy`) |
 | `db` | `postgres:16.15-alpine` | persistente Daten | keine |
 | `proxy` | `caddy:2.8.4-alpine` | HTTPS/TLS, Zugriffsbeschränkung auf erlaubte Netze, Weiterleitung `/` → app, `/ws` → asterisk | 443, 80 |

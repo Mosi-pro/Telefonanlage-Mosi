@@ -10,7 +10,7 @@ Erster Schritt immer: `./healthcheck.sh` und `docker compose ps` / `docker compo
 | „Docker ist nicht installiert“ | `./install.sh --install-docker` (Debian/Ubuntu, root) oder Docker laut docs.docker.com installieren |
 | „Der Docker-Dienst ist nicht erreichbar“ | `systemctl status docker`; Benutzer in Gruppe `docker` oder root verwenden |
 | LXC: Container startet nicht / `permission denied` / `sysctl` | Features **nesting** und **keyctl** fehlen (Proxmox → Container → Optionen → Features); Container neu starten; sonst VM nutzen |
-| Build: `Could not resolve 'deb.debian.org'` / npm-Fehler | Kein Internet/DNS in der VM. `ping deb.debian.org`, DNS-Server prüfen; Proxy: Docker-Proxy-Einstellungen (`/etc/systemd/system/docker.service.d/`) |
+| Build: `Could not resolve 'archive.ubuntu.com'` / npm-Fehler | Kein Internet/DNS in der VM. `ping archive.ubuntu.com`, DNS-Server prüfen; Proxy: Docker-Proxy-Einstellungen (`/etc/systemd/system/docker.service.d/`) |
 | `429 Too Many Requests` beim Image-Download | Docker-Hub-Rate-Limit: später erneut oder `docker login` |
 | Port 443/80/5060 belegt | Anderen Dienst beenden oder `HTTPS_PORT`/`HTTP_PORT`/`SIP_PORT` in `.env` ändern |
 | `.env ist unvollständig` | Fehlende Schlüssel aus `.env.example` ergänzen |

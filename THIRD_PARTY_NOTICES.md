@@ -6,9 +6,9 @@ gelten unabhängig von der MIT-Lizenz dieses Projekts.
 
 | Komponente | Version / Quelle | Lizenz | Verwendung |
 |---|---|---|---|
-| Asterisk | Pakete `asterisk`, `asterisk-modules`, `asterisk-config` aus Debian 12 „bookworm“ (deb.debian.org, 20.x-Serie) | GPL-2.0 (mit Zusatzausnahmen, siehe `/usr/share/doc/asterisk/copyright` im Image) | Telefonie-Engine, läuft als eigener Container; es wird nicht in Mosi-Code eingebunden (Kommunikation über das AMI-Netzwerkprotokoll) |
-| Asterisk Core-/MOH-Sounds (en) | Debian-Pakete `asterisk-core-sounds-en-gsm`, `asterisk-moh-opsound-gsm` | CC-BY-SA-3.0 bzw. Herstellerangaben im Paket | Standardansagen der Voicemail, Wartemusik |
-| Debian GNU/Linux | Image `debian:12.15-slim` (Docker Official Image) | verschiedene (DFSG) | Basis des Telefonie-Containers |
+| Asterisk | Pakete `asterisk`, `asterisk-modules`, `asterisk-config` aus Ubuntu 24.04 LTS „noble“ (archive.ubuntu.com, Asterisk 20.6.x; Debian 12 bietet kein Asterisk-Paket) | GPL-2.0 (mit Zusatzausnahmen, siehe `/usr/share/doc/asterisk/copyright` im Image) | Telefonie-Engine, läuft als eigener Container; es wird nicht in Mosi-Code eingebunden (Kommunikation über das AMI-Netzwerkprotokoll) |
+| Asterisk Core-/MOH-Sounds (en) | Ubuntu-Pakete `asterisk-core-sounds-en-gsm`, `asterisk-moh-opsound-gsm` | CC-BY-SA-3.0 bzw. Herstellerangaben im Paket | Standardansagen der Voicemail, Wartemusik |
+| Ubuntu | Image `ubuntu:24.04` (Docker Official Image) | verschiedene (freie Software-Lizenzen) | Basis des Telefonie-Containers |
 | Node.js | Image `node:22.23.3-bookworm-slim` (Docker Official Image) | MIT u. a. | Laufzeit für Backend |
 | PostgreSQL | Image `postgres:16.15-alpine` (Docker Official Image) | PostgreSQL License | Datenbank |
 | Caddy | Image `caddy:2.8.4-alpine` (Docker Official Image) | Apache-2.0 | HTTPS-Reverse-Proxy |
@@ -19,4 +19,4 @@ gelten unabhängig von der MIT-Lizenz dieses Projekts.
 Playwright/Chromium werden nur für die optionalen Browser-Tests (`tests/integration`) verwendet und sind kein Teil der Laufzeit.
 
 Hinweis zu Asterisk: Asterisk ist ein eingetragenes Warenzeichen von Sangoma Technologies. Dieses Projekt ist weder
-mit Sangoma noch mit Debian, Proxmox oder den genannten Projekten verbunden oder von ihnen unterstützt.
+mit Sangoma noch mit Canonical/Ubuntu, Proxmox oder den genannten Projekten verbunden oder von ihnen unterstützt.

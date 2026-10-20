@@ -35,7 +35,7 @@ jobs:
     needs: checks
     steps:
       - uses: actions/checkout@v4
-      - name: Images bauen (Debian-/Node-Basis wie in der Produktion)
+      - name: Images bauen (Basis-Images wie in der Produktion)
         run: |
           cp .env.example .env
           sed -i 's/^POSTGRES_PASSWORD=$/POSTGRES_PASSWORD=ci/; s/^APP_SECRET=$/APP_SECRET=ci-secret-ci-secret-ci-secret-ci-secret/; s/^AMI_SECRET=$/AMI_SECRET=ci-ami-secret/' .env

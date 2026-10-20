@@ -62,7 +62,7 @@ Fax, Konferenzräume, dynamisches An-/Abmelden von Queue-Agenten, E-Mail-Versand
 * Proxmox VE (beliebige aktuelle Version) mit Netzwerkzugriff auf Ihr LAN.
 * Eine **VM** (empfohlen, Debian 12/Ubuntu 22.04+, 2 vCPU, 2 GB RAM, 16 GB Disk) **oder** ein **unprivilegierter LXC-Container** mit aktivierten Features *Nesting* und *keyctl*.
 * Feste IP-Adresse (DHCP-Reservierung) für die VM/den Container.
-* Internetzugang **während der Installation** (Docker Hub, `deb.debian.org`, `registry.npmjs.org`).
+* Internetzugang **während der Installation** (Docker Hub, `archive.ubuntu.com`, `registry.npmjs.org`).
 * Docker Engine + Compose-Plugin (kann `install.sh --install-docker` aus dem offiziellen Docker-APT-Repository einrichten), `curl`, `openssl`, `git`.
 
 ## Installation auf Proxmox (LXC oder VM)
@@ -127,7 +127,7 @@ docker compose restart asterisk   # sicherer Neustart eines Dienstes; Konfigurat
 ```
 
 Alle Konfigurationen überstehen Neustarts der VM/des Containers (`restart: unless-stopped`, Daten in Docker-Volumes). Mehr: [`docs/operations.md`](docs/operations.md).
-**Sicherheitswartung:** Images sind auf feste Versionen gepinnt – regelmäßig (mind. monatlich) `./update.sh` ausführen und Sicherheitsmeldungen zu Asterisk/Debian/Caddy/Node beachten.
+**Sicherheitswartung:** Images sind auf feste Versionen gepinnt – regelmäßig (mind. monatlich) `./update.sh` ausführen und Sicherheitsmeldungen zu Asterisk/Ubuntu/Caddy/Node beachten.
 
 ## Fehlerdiagnose
 
@@ -135,7 +135,7 @@ Siehe [`docs/troubleshooting.md`](docs/troubleshooting.md): Installation (LXC/Do
 
 ## Teststatus
 
-Folgendes wurde **tatsächlich ausgeführt** – in einer Linux-VM mit Docker, gegen eine **frische Installation aus einem sauberen Git-Checkout** per `./install.sh --skip-build` (echtes Asterisk, echtes PostgreSQL, echter Chromium). `--skip-build` war nötig, weil die Images in dieser Umgebung vorab gebaut werden mussten (siehe Hinweis zum Debian-Paketarchiv unter *Bekannte Grenzen*); die Dockerfiles wurden mit `docker build --network host` gebaut – das Telefonie-Image mit `ubuntu:24.04` statt `debian:12.15-slim` als Basis, das App-Image mit einer um das Sandbox-Zertifikat erweiterten Node-Basis. Der unveränderte Build über `docker compose build` mit den gepinnten Basis-Images wurde hier **nicht** ausgeführt:
+Folgendes wurde **tatsächlich ausgeführt** – in einer Linux-VM mit Docker, gegen eine **frische Installation aus einem sauberen Git-Checkout** per `./install.sh --skip-build` (echtes Asterisk, echtes PostgreSQL, echter Chromium). `--skip-build` war nötig, weil der Docker-Build in dieser Umgebung nur mit `--network host` (und für Node mit einer um das Sandbox-Zertifikat erweiterten Basis) funktionierte; die Images wurden daher vorab mit `docker build` gebaut. Der unveränderte `docker compose build` läuft in der GitHub-CI (`.github/workflows/ci.yml`):
 
 | Test | Ergebnis |
 |---|---|
@@ -153,11 +153,11 @@ Wiederholung und Details: [`docs/testing.md`](docs/testing.md). Die Tests fanden
 ## Bekannte Grenzen
 
 * **Nicht getestet:** Betrieb auf einem echten Proxmox-Server (LXC-Features/VM) – die Anleitung folgt der Docker-Dokumentation, wurde aber nicht auf Proxmox ausgeführt; **echter SIP-Anbieter** (Trunk-Logik wurde nur gegen einen simulierten Anbieter im selben Netz geprüft, Interoperabilität mit konkreten Anbietern kann Anpassungen erfordern); **echte Tischtelefone und Smartphone-Apps** (getestet mit einem eigenen Test-UA und Chromium); **Registrierung und Anrufe über SIP-TLS** (nur Transport und Handshake getestet); NAT-Szenarien über Netzgrenzen hinweg; Multi-Arch (ARM).
-* Der Telefonie-Container wird aus dem Debian-12-Paketarchiv gebaut. In der Entwicklungsumgebung war `deb.debian.org` nicht erreichbar; das Image wurde deshalb mit dem inhaltlich gleichen Asterisk-20-Paket aus Ubuntu 24.04 gebaut und getestet. Der Debian-Build ist per `docker compose build` bei Internetzugang vorgesehen und wird von `install.sh` ausgeführt – bei Problemen bitte Issue anlegen.
+* Der Telefonie-Container basiert auf `ubuntu:24.04` (Asterisk 20.6 aus dem Ubuntu-Archiv; Debian 12 liefert kein Asterisk-Paket mehr – das hat die GitHub-CI beim ersten Versuch aufgedeckt). Die Basis-Tags sind gepinnt, die Paketversion folgt dem Ubuntu-Archiv (Sicherheitsupdates kommen mit `./update.sh`, ggf. `docker compose build --no-cache asterisk`).
 * Browsertelefonie braucht **HTTPS mit vertrauenswürdigem Zertifikat** und funktioniert über NAT/Mobilfunk nicht ohne VPN oder STUN/TURN. Sie funktioniert nicht „über jedes Netzwerk“.
 * Notrufe über VoIP sind nicht garantiert (Standort, Anbieter). Nicht als alleinige Notrufmöglichkeit verwenden.
 * Kein automatisches Blockieren (fail2ban) von SIP-Angreifern; Schutz beruht auf Netzwerkfilter + starken Passwörtern + Überwachung im Dashboard.
-* Voicemail-Ansagen sind die englischen Standardansagen von Asterisk (kein deutsches Sprachpaket im Debian-Archiv); IVR-Ansagen laden Sie selbst hoch.
+* Voicemail-Ansagen sind die englischen Standardansagen von Asterisk (kein deutsches Sprachpaket in den Paketquellen); IVR-Ansagen laden Sie selbst hoch.
 * Ausgehende Rufnummernübermittlung, Premium-Sperren und Berechtigungen schützen vor Missbrauch **innerhalb** der Anlage – sie ersetzen nicht die Ausgabenlimits Ihres Anbieters (dort ebenfalls setzen!).
 
 ## Lizenz und Drittanbieter

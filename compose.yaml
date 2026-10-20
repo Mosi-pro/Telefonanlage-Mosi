@@ -21,10 +21,10 @@ services:
     networks: [mosi_net]                    # keine veroeffentlichten Ports
 
   asterisk:
-    build:                                  # Asterisk aus den Debian-12-Paketen
+    build:                                  # Asterisk aus den Ubuntu-24.04-Paketen
       context: ./telephony
       args:
-        DEBIAN_IMAGE: ${DEBIAN_IMAGE:-debian:12.15-slim}
+        BASE_IMAGE: ${BASE_IMAGE:-ubuntu:24.04}
     image: mosi/asterisk:1.0.0
     restart: unless-stopped
     stop_grace_period: 20s
