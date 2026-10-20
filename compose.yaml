@@ -1,0 +1,124 @@
+# Mosi Cloud PBX - Docker Compose
+# Alle Werte kommen aus .env (siehe .env.example). Images sind auf feste Versionen gepinnt.
+name: mosi
+
+services:
+  db:
+    image: postgres:16.15-alpine            # Docker Official Image, PostgreSQL-Lizenz
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mosi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mosi}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [mosi_net]                    # keine veroeffentlichten Ports
+
+  asterisk:
+    build: ./telephony                      # Asterisk aus den Debian-12-Paketen
+    image: mosi/asterisk:1.0.0
+    restart: unless-stopped
+    stop_grace_period: 20s
+    environment:
+      HOST_IP: ${HOST_IP:?HOST_IP fehlt in .env}
+      AMI_SECRET: ${AMI_SECRET:?AMI_SECRET fehlt in .env}
+      ASTERISK_IP: 172.29.0.10
+      DOCKER_SUBNET: 172.29.0.0/24
+      AMI_PERMIT: 172.29.0.0/255.255.255.0
+      SIP_PORT: ${SIP_PORT:-5060}
+      SIP_TLS_PORT: ${SIP_TLS_PORT:-5061}
+      SIP_TLS_ENABLED: ${SIP_TLS_ENABLED:-false}
+      RTP_START: ${RTP_START:-10000}
+      RTP_END: ${RTP_END:-10199}
+      SIP_ALLOWED_NETS: ${SIP_ALLOWED_NETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}
+      TZ: ${TZ:-Europe/Berlin}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${SIP_PORT:-5060}:${SIP_PORT:-5060}/udp"
+      - "${BIND_IP:-0.0.0.0}:${SIP_PORT:-5060}:${SIP_PORT:-5060}/tcp"
+      - "${BIND_IP:-0.0.0.0}:${RTP_START:-10000}-${RTP_END:-10199}:${RTP_START:-10000}-${RTP_END:-10199}/udp"
+    volumes:
+      - asterisk_generated:/etc/asterisk/mosi
+      - voicemail:/var/spool/asterisk/voicemail
+      - sounds:/var/lib/mosi/sounds
+      - asterisk_logs:/var/log/asterisk
+      - ./certs:/certs:ro
+    networks:
+      mosi_net:
+        ipv4_address: 172.29.0.10
+
+  app:
+    build: .
+    image: mosi/app:1.0.0
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+      asterisk: { condition: service_started }
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-mosi}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-mosi}
+      APP_SECRET: ${APP_SECRET:?APP_SECRET fehlt in .env}
+      AMI_SECRET: ${AMI_SECRET}
+      ASTERISK_HOST: asterisk
+      HOST_IP: ${HOST_IP}
+      MOSI_HOSTNAME: ${MOSI_HOSTNAME:-${HOST_IP}}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SIP_PORT: ${SIP_PORT:-5060}
+      SIP_TLS_PORT: ${SIP_TLS_PORT:-5061}
+      SIP_TLS_ENABLED: ${SIP_TLS_ENABLED:-false}
+      RTP_START: ${RTP_START:-10000}
+      RTP_END: ${RTP_END:-10199}
+      SIP_ALLOWED_NETS: ${SIP_ALLOWED_NETS:-192.168.0.0/16,10.0.0.0/8,172.16.0.0/12}
+      ADMIN_ALLOWED_NETS: ${ADMIN_ALLOWED_NETS:-private_ranges}
+      STUN_SERVER: ${STUN_SERVER:-}
+      TURN_URL: ${TURN_URL:-}
+      TURN_USER: ${TURN_USER:-}
+      TURN_PASSWORD: ${TURN_PASSWORD:-}
+      LOGIN_MAX_FAILURES: ${LOGIN_MAX_FAILURES:-5}
+      LOGIN_LOCK_MINUTES: ${LOGIN_LOCK_MINUTES:-15}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - asterisk_generated:/etc/asterisk/mosi
+      - voicemail:/var/spool/asterisk/voicemail
+      - sounds:/var/lib/mosi/sounds
+      - asterisk_logs:/var/log/asterisk
+    networks: [mosi_net]                    # nur ueber den Reverse-Proxy erreichbar
+
+  proxy:
+    image: caddy:2.8.4-alpine               # Docker Official Image, Apache-2.0
+    restart: unless-stopped
+    depends_on: [app]
+    environment:
+      MOSI_HOSTNAME: ${MOSI_HOSTNAME:-${HOST_IP}}
+      MOSI_TLS: ${MOSI_TLS:-internal}
+      ADMIN_ALLOWED_NETS: ${ADMIN_ALLOWED_NETS:-private_ranges}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${HTTPS_PORT:-443}:443"
+      - "${BIND_IP:-0.0.0.0}:${HTTP_PORT:-80}:80"
+    volumes:
+      - ./config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [mosi_net]
+
+networks:
+  mosi_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
+
+volumes:
+  db_data:
+  asterisk_generated:
+  voicemail:
+  sounds:
+  asterisk_logs:
+  caddy_data:
+  caddy_config:

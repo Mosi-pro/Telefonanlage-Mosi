@@ -1,0 +1,6 @@
+# Zusatzdatei: veroeffentlicht den SIP-TLS-Port. Wird von den Skripten automatisch eingebunden,
+# wenn in .env SIP_TLS_ENABLED=true gesetzt ist (Zertifikate: certs/sip-cert.pem, certs/sip-key.pem).
+services:
+  asterisk:
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${SIP_TLS_PORT:-5061}:${SIP_TLS_PORT:-5061}/tcp"

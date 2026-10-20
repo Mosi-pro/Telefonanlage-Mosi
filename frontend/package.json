@@ -1,0 +1,16 @@
+{
+  "name": "mosi-pbx-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Mosi Cloud PBX Dashboard - einzige Laufzeitabhaengigkeit ist JsSIP (WebRTC-SIP-Client, MIT-Lizenz)",
+  "dependencies": {
+    "jssip": "3.10.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2"
+  },
+  "scripts": {
+    "build": "esbuild node_modules/jssip/lib-es5/JsSIP.js --bundle --minify --format=iife --global-name=JsSIP --platform=browser --outfile=vendor/jssip.min.js --legal-comments=inline"
+  }
+}

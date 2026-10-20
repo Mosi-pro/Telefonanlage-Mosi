@@ -1,0 +1,35 @@
+[modules]
+autoload=yes
+; Veraltete bzw. nicht benoetigte Kanaltreiber und Angriffsflaeche abschalten
+noload => chan_sip.so
+noload => chan_iax2.so
+noload => chan_skinny.so
+noload => chan_unistim.so
+noload => chan_dahdi.so
+noload => chan_mgcp.so
+noload => chan_mobile.so
+noload => chan_console.so
+noload => chan_alsa.so
+noload => res_ari.so
+noload => res_ari_applications.so
+noload => res_ari_asterisk.so
+noload => res_ari_bridges.so
+noload => res_ari_channels.so
+noload => res_ari_device_states.so
+noload => res_ari_endpoints.so
+noload => res_ari_events.so
+noload => res_ari_mailboxes.so
+noload => res_ari_model.so
+noload => res_ari_playbacks.so
+noload => res_ari_recordings.so
+noload => res_ari_sounds.so
+noload => app_ari.so
+noload => res_stasis.so
+noload => pbx_ael.so
+noload => pbx_lua.so
+noload => app_externalivr.so
+noload => app_mixmonitor.so
+noload => app_chanspy.so
+noload => app_system.so
+noload => app_voicemail_odbc.so
+noload => app_voicemail_imap.so

@@ -1,0 +1,36 @@
+; Erzeugt aus telephony/templates - NICHT von Hand bearbeiten.
+[global]
+type=global
+user_agent=Mosi-PBX
+endpoint_identifier_order=ip,username
+max_forwards=20
+
+[system]
+type=system
+timer_t1=500
+timer_b=32000
+
+[transport-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0:${SIP_PORT}
+external_media_address=${HOST_IP}
+external_signaling_address=${HOST_IP}
+local_net=${DOCKER_SUBNET}
+
+[transport-tcp]
+type=transport
+protocol=tcp
+bind=0.0.0.0:${SIP_PORT}
+external_media_address=${HOST_IP}
+external_signaling_address=${HOST_IP}
+local_net=${DOCKER_SUBNET}
+
+${TLS_TRANSPORT}
+; WebSocket-Transport (WebRTC); TLS wird vom Reverse-Proxy terminiert.
+[transport-ws]
+type=transport
+protocol=ws
+bind=0.0.0.0
+
+#include "mosi/pjsip_mosi.conf"

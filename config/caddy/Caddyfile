@@ -1,0 +1,36 @@
+# HTTPS-Reverse-Proxy fuer Dashboard und Browsertelefonie (WSS).
+# MOSI_TLS=internal  -> von Caddy erzeugte lokale CA (Root-Zertifikat im Browser installieren, siehe docs/network.md)
+# MOSI_TLS=/certs/fullchain.pem /certs/privkey.pem  -> eigenes Zertifikat (z. B. aus Ihrer Firmen-CA)
+{
+	admin off
+	# Clients, die per IP verbinden, senden kein SNI -> Standardzertifikat verwenden
+	default_sni {$MOSI_HOSTNAME}
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$MOSI_HOSTNAME} {
+	tls {$MOSI_TLS}
+
+	# Verwaltung nur aus dem vertrauenswuerdigen Netz (Standard: private Adressbereiche)
+	@denied not remote_ip {$ADMIN_ALLOWED_NETS}
+	respond @denied "Zugriff nur aus dem lokalen Netz oder ueber VPN." 403
+
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	# WebRTC-Signalisierung (SIP ueber WebSocket) -> Asterisk (nur intern erreichbar)
+	handle /ws {
+		reverse_proxy asterisk:8088
+	}
+
+	handle {
+		reverse_proxy app:3000
+	}
+}

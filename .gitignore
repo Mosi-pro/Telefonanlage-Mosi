@@ -1,0 +1,27 @@
+# Geheimnisse und lokale Konfiguration - niemals einchecken
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+certs/
+backups/
+data/
+
+# Abhaengigkeiten / Build
+node_modules/
+backend/public/
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+frontend/node_modules/
+frontend/vendor/

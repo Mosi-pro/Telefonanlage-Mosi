@@ -1,0 +1,6 @@
+{
+  "name": "mosi-pbx-integration-tests",
+  "private": true,
+  "description": "Browser-Test fuer WebRTC (Playwright + Chromium mit Test-Mikrofon)",
+  "devDependencies": { "playwright": "1.49.1" }
+}
