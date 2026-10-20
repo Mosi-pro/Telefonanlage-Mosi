@@ -135,7 +135,7 @@ Siehe [`docs/troubleshooting.md`](docs/troubleshooting.md): Installation (LXC/Do
 
 ## Teststatus
 
-Folgendes wurde **tatsächlich ausgeführt** – in einer Linux-VM mit Docker, gegen eine **frische Installation aus einem sauberen Git-Checkout** per `./install.sh --skip-build` (echtes Asterisk, echtes PostgreSQL, echter Chromium). `--skip-build` war nötig, weil der Docker-Build in dieser Umgebung nur mit `--network host` (und für Node mit einer um das Sandbox-Zertifikat erweiterten Basis) funktionierte; die Images wurden daher vorab mit `docker build` gebaut. Der unveränderte `docker compose build` läuft in der GitHub-CI (`.github/workflows/ci.yml`):
+Folgendes wurde **tatsächlich ausgeführt** – in einer Linux-VM mit Docker, gegen eine **frische Installation aus einem sauberen Git-Checkout** per `./install.sh --skip-build` (echtes Asterisk, echtes PostgreSQL, echter Chromium). `--skip-build` war nötig, weil der Docker-Build in dieser Umgebung nur mit `--network host` (und für Node mit einer um das Sandbox-Zertifikat erweiterten Basis) funktionierte; die Images wurden daher vorab mit `docker build` gebaut. Der unveränderte `docker compose build` mit den gepinnten Basis-Images lief erfolgreich in der GitHub-CI (`.github/workflows/ci.yml`, Run vom 20.10.2026):
 
 | Test | Ergebnis |
 |---|---|
