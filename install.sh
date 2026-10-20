@@ -126,7 +126,9 @@ if ! ./healthcheck.sh --wait 180; then
 fi
 
 info "5/5 Fertig"
-URL="https://$(env_get MOSI_HOSTNAME)$( [ "$(env_get HTTPS_PORT)" != "443" ] && [ -n "$(env_get HTTPS_PORT)" ] && echo ":$(env_get HTTPS_PORT)")"
+PORT_VAL="$(env_get HTTPS_PORT)"; PORT_SUFFIX=""
+if [ -n "$PORT_VAL" ] && [ "$PORT_VAL" != "443" ]; then PORT_SUFFIX=":$PORT_VAL"; fi
+URL="https://$(env_get MOSI_HOSTNAME)${PORT_SUFFIX}"
 echo
 echo "${C_B}Mosi Cloud PBX laeuft.${C_0}"
 echo "  Dashboard:   ${URL}   (nur aus dem lokalen Netz; Browser-Zertifikatswarnung beim ersten Aufruf: siehe docs/network.md)"
