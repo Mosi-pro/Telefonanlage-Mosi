@@ -9,7 +9,7 @@ const ext = (n, extra = {}) => ({
   pickup_allowed: false, pickup_group: null, voicemail_enabled: false, voicemail_pin: '', ring_timeout: 25,
   fwd_always: null, fwd_busy: null, fwd_noanswer: null, fwd_unavail: null, ...extra,
 });
-const base = (over = {}) => ({ settings: { tz: 'Europe/Berlin' }, extensions: [ext('100'), ext('101')], ringGroups: [], queues: [], ivrs: [], schedules: [], trunks: [], trunkNumbers: [], outRules: [], contacts: [], sounds: [], ...over });
+const base = (over = {}) => ({ settings: { tz: 'Europe/Berlin', hostName: '192.0.2.10' }, extensions: [ext('100'), ext('101')], ringGroups: [], queues: [], ivrs: [], schedules: [], trunks: [], trunkNumbers: [], outRules: [], contacts: [], sounds: [], ...over });
 
 test('Nebenstellen erzeugen Auth/AOR/Endpoint und WebRTC-Endpoint', () => {
   const { files, expected } = generate(base());
@@ -19,6 +19,7 @@ test('Nebenstellen erzeugen Auth/AOR/Endpoint und WebRTC-Endpoint', () => {
   assert.match(pj, /username=100-web/);       // eigener Auth-Benutzer fuer den Browser
   assert.match(pj, /webrtc=yes/);
   assert.match(pj, /acl=acl_sip/);
+  assert.match(pj, /from_domain=192\.0\.2\.10/);   // JsSIP kann Container-IDs als Hostname nicht parsen
   assert.deepEqual(expected.endpoints.sort(), ['100', '100-web', '101', '101-web']);
 });
 

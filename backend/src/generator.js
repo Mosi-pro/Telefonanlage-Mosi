@@ -91,6 +91,8 @@ function generate(state) {
       `auth=${name}`, `aors=${name}`, `callerid="${e.display_name}" <${e.number}>`,
       'direct_media=no', 'rtp_symmetric=yes', 'force_rport=yes', 'rewrite_contact=yes',
       'dtmf_mode=rfc4733', 'language=de', 'device_state_busy_at=1', 'allow_subscribe=yes',
+      // Absender-Domain fuer Anfragen der Anlage an das Endgeraet: JsSIP (Browser) kann die Container-ID als Hostname nicht parsen
+      ...(settings.hostName && /^[A-Za-z0-9.-]+$/.test(settings.hostName) ? [`from_domain=${settings.hostName}`] : []),
       ...(e.voicemail_enabled ? [`mailboxes=${e.number}@default`] : []),
       ...(e.pickup_group ? [`call_group=${e.pickup_group}`, `pickup_group=${e.pickup_group}`] : []),
       ...vars,

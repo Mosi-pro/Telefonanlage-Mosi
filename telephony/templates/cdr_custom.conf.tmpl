@@ -1,3 +1,4 @@
 ; CSV-Datei, die das Backend einliest und in PostgreSQL speichert.
+; Zeitstempel als Unix-Epoche (Option u) - unabhaengig von Zeitzonen der Engine.
 [mappings]
-Mosi.csv => ${CSV_QUOTE(${CDR(start)})},${CSV_QUOTE(${CDR(answer)})},${CSV_QUOTE(${CDR(end)})},${CSV_QUOTE(${CDR(src)})},${CSV_QUOTE(${CDR(dst)})},${CSV_QUOTE(${CDR(clid)})},${CSV_QUOTE(${CDR(channel)})},${CSV_QUOTE(${CDR(dstchannel)})},${CSV_QUOTE(${CDR(disposition)})},${CDR(duration)},${CDR(billsec)},${CSV_QUOTE(${CDR(uniqueid)})},${CSV_QUOTE(${CDR(linkedid)})},${CSV_QUOTE(${CDR(lastapp)})},${CSV_QUOTE(${CDR(dcontext)})}
+Mosi.csv => ${CDR(start,u)},${CDR(answer,u)},${CDR(end,u)},${CSV_QUOTE(${CDR(src)})},${CSV_QUOTE(${CDR(dst)})},${CSV_QUOTE(${CDR(clid)})},${CSV_QUOTE(${CDR(channel)})},${CSV_QUOTE(${CDR(dstchannel)})},${CSV_QUOTE(${CDR(disposition)})},${CDR(duration)},${CDR(billsec)},${CSV_QUOTE(${CDR(uniqueid)})},${CSV_QUOTE(${CDR(linkedid)})},${CSV_QUOTE(${CDR(lastapp)})},${CSV_QUOTE(${CDR(dcontext)})}

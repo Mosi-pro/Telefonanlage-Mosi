@@ -27,7 +27,7 @@ async function loadState(c) {
     ? fs.readdirSync(config.asterisk.soundsDir).filter((f) => f.endsWith('.wav')).map((f) => f.replace(/\.wav$/, ''))
     : [];
   return {
-    settings: { ...settings, tz: config.tz, tlsAvailable: config.asterisk.sipTlsEnabled },
+    settings: { ...settings, tz: config.tz, tlsAvailable: config.asterisk.sipTlsEnabled, hostName: config.hostName },
     extensions: (await q('SELECT * FROM extensions ORDER BY number')).map((e) => ({
       ...e, sip_password: decrypt(e.sip_password_enc), voicemail_pin: e.voicemail_pin_enc ? decrypt(e.voicemail_pin_enc) : '',
     })),

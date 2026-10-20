@@ -57,7 +57,7 @@ def main():
     ua.hangup()
     out2 = json.loads(proc.communicate(timeout=60)[0].strip().splitlines()[-1])
     st2 = out2.get("stats") or {}
-    check("Browser hat geklingelt und die Anruferkennung angezeigt", out2.get("ringing") and "101" in (out2.get("caller") or ""), out2)
+    check("Browser hat geklingelt und die Anruferkennung angezeigt", out2.get("ringing") and any(x in (out2.get("caller") or "") for x in ("101", "Test Zwei")), out2)
     check("Eingehend: DTLS-SRTP verbunden und Audio in beide Richtungen", st2.get("dtls") == "connected" and st2.get("inboundPackets", 0) > 100 and st2.get("outboundPackets", 0) > 100, st2)
     check("Eingehend: Gegenseite legt auf, Browser zeigt Ende", "beendet" in (out2.get("endState") or ""), out2.get("endState"))
     ua.close()

@@ -49,14 +49,14 @@ async function ingest() {
   let n = 0;
   await db.tx(async (c) => {
     for (const r of rows) {
-      if (r.length < 15) { log.warn('CDR-Zeile uebersprungen', { columns: r.length }); continue; }
+      if (r.length < 15 || !Number.isFinite(Number(r[0])) || !Number.isFinite(Number(r[2]))) { log.warn('CDR-Zeile uebersprungen', { columns: r.length }); continue; }
       const [start, answer, end, src, dst, clid, channel, dstchannel, disposition, duration, billsec, uniqueid, linkedid, lastapp, dcontext] = r;
       const res = await c.query(
         `INSERT INTO calls (uniqueid, linkedid, started, answered, ended, src, dst, clid, channel, dstchannel, disposition, duration, billsec, lastapp, dcontext, direction)
-         VALUES ($1,$2,($3::timestamp AT TIME ZONE $17),NULLIF($4,'')::timestamp AT TIME ZONE $17,($5::timestamp AT TIME ZONE $17),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         VALUES ($1,$2,to_timestamp($3::float8),CASE WHEN $4::float8 > 0 THEN to_timestamp($4::float8) END,to_timestamp($5::float8),$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
          ON CONFLICT DO NOTHING`,
         [uniqueid, linkedid, start, answer, end, src, dst, clid, channel, dstchannel || '', disposition, parseInt(duration, 10) || 0, parseInt(billsec, 10) || 0,
-          lastapp, dcontext, direction(channel, dstchannel, dcontext), config.tz]);
+          lastapp, dcontext, direction(channel, dstchannel, dcontext)]);
       n += res.rowCount;
     }
     await c.query('UPDATE cdr_state SET file_offset = $1, file_inode = $2 WHERE id = 1', [offset + consumed.length, String(st.ino)]);

@@ -79,7 +79,7 @@ export default async function render(el) {
   function attach(s) {
     session = s;
     s.on('peerconnection', (e) => { e.peerconnection.addEventListener('track', (ev) => { audio.srcObject = ev.streams[0]; audio.play().catch(() => {}); }); });
-    s.on('progress', () => { stateEl.textContent = 'Es klingelt…'; });
+    s.on('progress', (e) => { if (e.originator === 'remote') stateEl.textContent = 'Es klingelt…'; });   // nur bei ausgehenden Rufen
     s.on('accepted', () => { stateEl.textContent = 'Im Gespräch'; started = Date.now(); clearInterval(timer); timer = setInterval(tick, 1000); stopRing(); setUi('call'); });
     s.on('confirmed', () => { const pc = s.connection; if (pc) pc.getReceivers().forEach((r) => { if (r.track && r.track.kind === 'audio') { audio.srcObject = new MediaStream([r.track]); audio.play().catch(() => {}); } }); });
     s.on('ended', () => end('Gespräch beendet'));

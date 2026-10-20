@@ -261,6 +261,15 @@ def main():
     code, seen = ua["102"].invite("**100", answer_wait=5)
     check("Anrufuebernahme ohne Berechtigung wird abgewiesen", code is None or code >= 400, f"{code} {seen}")
 
+    print("== Echo-Test *43")
+    code, seen = ua["100"].invite("*43", answer_wait=8)
+    check("Echo-Test *43 nimmt den Anruf an", code == 200, f"{code} {seen}")
+    time.sleep(9)       # Ansage "demo-echotest" abwarten, danach kommt die eigene Stimme zurueck
+    ua["100"].rx_payloads = []
+    time.sleep(2)
+    check("Echo-Test: eigenes Audio kommt zurueck (Medienpfad in beide Richtungen)", ua["100"].received_pattern_ratio(PATTERN_A) > 0.8, f"{ua['100'].received_pattern_ratio(PATTERN_A):.2f}")
+    ua["100"].hangup()
+
     print("== Warteschlange 800 (100, 101)")
     code, q = api.call("POST", "/api/queues", {"number": "800", "name": "Hotline", "members": ["100", "101"], "strategy": "ringall", "timeout": 10, "max_wait": 60})
     check("Warteschlange angelegt", code == 201, f"{code} {q}")

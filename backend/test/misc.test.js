@@ -18,7 +18,7 @@ test('Zufallspasswoerter: Laenge, Zeichensatz, Eindeutigkeit', () => {
   assert.match(crypto.voicemailPin(), /^[0-9]{6}$/);
 });
 test('CDR-CSV: Anfuehrungszeichen und Kommas in Feldern', () => {
-  const rows = cdr.parseCsv('"2026-10-20 10:00:00","","2026-10-20 10:00:05","100","101","""Test, Eins"" <100>","PJSIP/100-0001","PJSIP/101-0002","ANSWERED",5,3,"1.1","1.1","Dial","mosi-internal"\n');
+  const rows = cdr.parseCsv('1792526563.464988,0.000000,1792526568.120000,"100","101","""Test, Eins"" <100>","PJSIP/100-0001","PJSIP/101-0002","ANSWERED",5,3,"1.1","1.1","Dial","mosi-internal"\n');
   assert.equal(rows.length, 1);
   assert.equal(rows[0][5], '"Test, Eins" <100>');
   assert.equal(rows[0].length, 15);
