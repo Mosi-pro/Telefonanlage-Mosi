@@ -4,25 +4,25 @@ import { api, state, login, logout, restore, post } from './api.js';
 const ROLE_RANK = { user: 1, operator: 2, admin: 3 };
 // Reihenfolge entspricht der geforderten Hauptnavigation; Browsertelefon ist die Zusatzseite fuer WebRTC.
 const PAGES = [
-  { id: 'setup', label: 'Einrichtungsassistent', min: 'operator', icon: '✦' },
-  { id: 'dashboard', label: 'Dashboard', min: 'operator' },
-  { id: 'extensions', label: 'Nebenstellen', min: 'user' },
-  { id: 'devices', label: 'Telefone und Geräte', min: 'operator' },
-  { id: 'calls', label: 'Anrufe', min: 'user' },
-  { id: 'contacts', label: 'Kontakte', min: 'user' },
-  { id: 'ringgroups', label: 'Rufgruppen', min: 'operator' },
-  { id: 'queues', label: 'Warteschlangen', min: 'operator' },
-  { id: 'ivrs', label: 'Telefonmenüs (IVR)', min: 'operator' },
-  { id: 'trunks', label: 'Rufnummern und SIP-Trunks', min: 'admin' },
-  { id: 'schedules', label: 'Zeitpläne', min: 'operator' },
-  { id: 'voicemail', label: 'Voicemail', min: 'user' },
-  { id: 'users', label: 'Benutzer und Rollen', min: 'admin' },
-  { id: 'network', label: 'Netzwerk und Sicherheit', min: 'admin' },
-  { id: 'status', label: 'Systemstatus', min: 'operator' },
-  { id: 'settings', label: 'Einstellungen', min: 'admin' },
+  { id: 'setup', label: 'Einrichtungsassistent', min: 'operator', group: 'Start', sub: 'Schritt für Schritt zur fertigen Telefonanlage.' },
+  { id: 'dashboard', label: 'Übersicht', min: 'operator', group: 'Start', sub: 'Aktueller Zustand: Geräte, Gespräche, Dienste und Fehler.' },
+  { id: 'extensions', label: 'Nebenstellen', min: 'user', group: 'Telefonie', sub: 'Interne Rufnummern mit Zugangsdaten, Berechtigungen und Weiterleitungen.' },
+  { id: 'devices', label: 'Telefone und Geräte', min: 'operator', group: 'Telefonie', sub: 'Registrierte Geräte live und Geräteinventar.' },
+  { id: 'calls', label: 'Anrufliste', min: 'user', group: 'Telefonie', sub: 'Alle Gespräche mit Dauer, Richtung und Ergebnis.' },
+  { id: 'voicemail', label: 'Voicemail', min: 'user', group: 'Telefonie', sub: 'Aufgesprochene Nachrichten abhören und verwalten.' },
+  { id: 'contacts', label: 'Kontakte und Kurzwahlen', min: 'user', group: 'Telefonie', sub: 'Gemeinsames Telefonbuch mit Kurzwahlen.' },
+  { id: 'ringgroups', label: 'Rufgruppen', min: 'operator', group: 'Anrufverteilung', sub: 'Mehrere Nebenstellen klingeln gemeinsam oder nacheinander.' },
+  { id: 'queues', label: 'Warteschlangen', min: 'operator', group: 'Anrufverteilung', sub: 'Anrufer warten mit Musik, bis ein Mitarbeiter frei ist.' },
+  { id: 'ivrs', label: 'Telefonmenüs (IVR)', min: 'operator', group: 'Anrufverteilung', sub: 'Ansage mit Tastenauswahl („Drücken Sie 1 für …“).' },
+  { id: 'schedules', label: 'Öffnungszeiten', min: 'operator', group: 'Anrufverteilung', sub: 'Zeitpläne für Tag-/Nachtbetrieb und Feiertage.' },
+  { id: 'trunks', label: 'Externe Rufnummern', min: 'admin', group: 'Extern', sub: 'SIP-Trunks Ihres Anbieters, Rufnummern und Wählregeln.' },
+  { id: 'users', label: 'Benutzer und Rollen', min: 'admin', group: 'Verwaltung', sub: 'Zugänge zum Dashboard und ihre Rechte.' },
+  { id: 'network', label: 'Netzwerk und Sicherheit', min: 'admin', group: 'Verwaltung', sub: 'Adressen, Ports, Schutzmaßnahmen und Fehlanmeldungen.' },
+  { id: 'status', label: 'Systemstatus', min: 'operator', group: 'Verwaltung', sub: 'Echte Dienstprüfungen, Konfigurationsänderungen und Ereignisse.' },
+  { id: 'settings', label: 'Einstellungen', min: 'admin', group: 'Verwaltung', sub: 'Betrugsschutz, Wartung und Audit-Protokoll.' },
 ];
-const WEBPHONE = { id: 'webphone', label: 'Browsertelefon', min: 'user' };
-const MOBILE = { id: 'mobile', label: 'Handy-App', min: 'user' };
+const WEBPHONE = { id: 'webphone', label: 'Browsertelefon', min: 'user', group: 'Telefonieren', sub: 'Direkt im Browser telefonieren (Mikrofon erforderlich).' };
+const MOBILE = { id: 'mobile', label: 'Handy-App', min: 'user', group: 'Telefonieren', sub: 'Mit dem Smartphone telefonieren – auch von unterwegs.' };
 const ROLE_LABEL = { admin: 'Administrator', operator: 'Operator', user: 'Benutzer' };
 
 const root = document.getElementById('app');
@@ -59,7 +59,7 @@ async function route() {
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('active', a.dataset.id === page.id));
   document.querySelector('.sidebar')?.classList.remove('open');
   const content = document.getElementById('content');
-  clear(content).append(h('h1', {}, page.label));
+  clear(content).append(h('h1', {}, page.label), h('p', { class: 'page-sub' }, page.sub || ''));
   const body = h('div', {}); content.append(body);
   try {
     const mod = await import(`./pages/${page.id}.js`);
@@ -79,10 +79,13 @@ async function changePassword() {
 
 function start() {
   if (cleanup) { cleanup(); cleanup = null; }
-  const nav = h('nav', { class: 'nav', 'aria-label': 'Hauptnavigation' },
-    PAGES.filter(allowed).map((p) => h('a', { href: `#/${p.id}`, 'data-id': p.id }, p.label)),
-    h('div', { class: 'sep' }),
-    [MOBILE, WEBPHONE].filter(allowed).map((p) => h('a', { href: `#/${p.id}`, 'data-id': p.id }, p.label)));
+  const items = [...PAGES, MOBILE, WEBPHONE].filter(allowed);
+  const navChildren = []; let lastGroup = null;
+  for (const p of items) {
+    if (p.group !== lastGroup) { navChildren.push(h('div', { class: 'group' }, p.group)); lastGroup = p.group; }
+    navChildren.push(h('a', { href: `#/${p.id}`, 'data-id': p.id }, p.label));
+  }
+  const nav = h('nav', { class: 'nav', 'aria-label': 'Hauptnavigation' }, navChildren);
   const side = h('aside', { class: 'sidebar' },
     h('div', { class: 'brand' }, h('b', {}, 'M'), 'Mosi Cloud PBX'), nav,
     h('div', { class: 'userbox' }, h('div', {}, state.user.display_name, ' (', state.user.username, ')'), h('div', {}, ROLE_LABEL[state.user.role]),

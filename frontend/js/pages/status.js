@@ -24,7 +24,7 @@ export default async function render(el) {
   }
   async function showRev(id) {
     const r = await get(`/config-revisions/${id}`);
-    await dialog({ title: `Konfigurationsstand #${r.id}`, width: '900px', body: h('div', {}, h('p', { class: 'muted' }, 'Passwörter sind geschwärzt. Der aktuelle Stand liegt als Dateien im Volume der Telefonie-Engine und wird beim Backup gesichert.'), Object.entries(r.files).map(([n, t]) => h('div', {}, h('h3', {}, n), h('pre', { class: 'mono', style: 'max-height:18rem;overflow:auto;background:#111213;padding:.7rem;border-radius:6px' }, t)))) });
+    await dialog({ title: `Konfigurationsstand #${r.id}`, width: '900px', body: h('div', {}, h('p', { class: 'muted' }, 'Passwörter sind geschwärzt. Der aktuelle Stand liegt als Dateien im Volume der Telefonie-Engine und wird beim Backup gesichert.'), Object.entries(r.files).map(([n, t]) => h('div', {}, h('h3', {}, n), h('pre', { class: 'mono', style: 'max-height:18rem;overflow:auto;background:var(--code-bg);padding:.7rem;border-radius:6px' }, t)))) });
   }
   await load();
   timer = setInterval(load, 10000);

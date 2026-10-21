@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
   await page.fill('#u', user); await page.fill('#p', pass); await page.click('button[type=submit]');
   await page.waitForSelector('.nav'); ok('Anmeldung ueber die Oberflaeche');
   const navCount = await page.locator('.nav a').count();
-  assert.equal(navCount, 16); ok('Navigation: 15 Hauptbereiche + Browsertelefon');
+  assert.equal(navCount, 18); ok('Navigation: 16 Bereiche + Handy-App + Browsertelefon');
 
   // Nebenstelle ueber den Dialog anlegen (POST mit CSRF-Token + Origin)
   await page.goto(`${base}/#/extensions`);
@@ -50,7 +50,7 @@ const assert = require('node:assert/strict');
   await page.fill('#u', 'uitester'); await page.fill('#p', 'Sicheres-Passwort-2026!'); await page.click('button[type=submit]');
   await page.waitForSelector('.nav');
   const labels = await page.locator('.nav a').allTextContents();
-  assert.ok(!labels.includes('Benutzer und Rollen') && !labels.includes('Rufnummern und SIP-Trunks') && !labels.includes('Einstellungen'), labels.join(','));
+  assert.ok(!labels.includes('Benutzer und Rollen') && !labels.includes('Externe Rufnummern') && !labels.includes('Einstellungen'), labels.join(','));
   ok('Rolle Benutzer: Admin-Bereiche sind ausgeblendet (' + labels.length + ' Eintraege)');
   const status = await page.evaluate(async () => (await fetch('/api/users', { credentials: 'same-origin' })).status);
   assert.equal(status, 403); ok('Rolle Benutzer: /api/users liefert 403');
