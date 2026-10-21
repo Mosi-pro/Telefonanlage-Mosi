@@ -93,6 +93,8 @@ Die Container-Images bringen ihre eigene Software mit; auf dem Host werden nur D
 
 ## Erste Schritte nach der Installation
 
+Nach der Anmeldung führt der **Einrichtungsassistent** (erste Seite im Dashboard) Schritt für Schritt durch die Inbetriebnahme und prüft jeden Schritt am echten System. Unter **Handy-App** finden Sie App-Vorschläge und die Anleitung, per VPN von überall zu telefonieren ([`docs/mobile.md`](docs/mobile.md), nicht getestet).
+
 1. `https://<IP der VM>` öffnen (Zertifikatshinweis: siehe [`docs/network.md`](docs/network.md#https-und-zertifikate)), als `admin` mit dem angezeigten Passwort anmelden und es unter *Passwort ändern* ersetzen.
 2. **Nebenstellen** → *Nebenstelle anlegen* (z. B. 100, 101). Die Anlage erzeugt ein starkes SIP-Passwort und lädt die Konfiguration in Asterisk.
 3. **Verbindung / Diagnose** der Nebenstelle öffnen → Serveradresse, Benutzername, Passwort in Telefon/App eintragen ([`docs/phones.md`](docs/phones.md)).

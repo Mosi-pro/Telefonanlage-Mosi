@@ -179,6 +179,28 @@ router.post('/system/resync', requireRole('admin'), sensitiveLimit, h(async (req
   res.json({ ok: true, result: r });
 }));
 
+// ---------------------------------------------------------------- Einrichtungsassistent (Status aus echten Daten)
+router.get('/setup/status', requireRole('operator'), h(async (_req, res) => {
+  const [live, svc] = [await monitor.live(), await status.services()];
+  const n = async (sql) => (await db.query(sql)).rows[0].n;
+  const exts = await n('SELECT count(*)::int n FROM extensions');
+  const trunks = await n('SELECT count(*)::int n FROM trunks');
+  const pw = await n("SELECT count(*)::int n FROM audit_log WHERE action = 'change-password'");
+  const calls = await n('SELECT count(*)::int n FROM calls');
+  const extNums = (await db.query('SELECT number FROM extensions ORDER BY number')).rows.map((r) => r.number);
+  const core = svc.filter((x) => ['db', 'ami', 'sip-udp'].includes(x.id));
+  const steps = [
+    { id: 'engine', title: 'System prüfen', done: core.every((x) => x.ok), detail: core.map((x) => `${x.name}: ${x.ok ? 'OK' : x.detail}`).join(' · ') },
+    { id: 'password', title: 'Administrator-Passwort ändern', done: pw > 0, detail: pw > 0 ? 'Passwort wurde geändert.' : 'Das Erstpasswort sollte ersetzt werden.' },
+    { id: 'extension', title: 'Erste Nebenstellen anlegen', done: exts >= 2, detail: `${exts} Nebenstelle(n) vorhanden – für einen Testanruf werden 2 gebraucht.` },
+    { id: 'device', title: 'Ein Gerät oder Handy registrieren', done: live.contacts.some((c) => !c.web && c.status !== 'Unreachable'), detail: `${live.contacts.filter((c) => !c.web).length} SIP-Gerät(e) aktuell registriert.` },
+    { id: 'call', title: 'Testanruf durchführen', done: calls > 0, detail: calls > 0 ? `${calls} Anruf(e) aufgezeichnet.` : 'Noch kein Gespräch aufgezeichnet.' },
+    { id: 'remote', title: 'Von unterwegs telefonieren (VPN)', optional: true, done: config.network.sipAllowedNets.includes('100.64.0.0/10'), detail: 'Per VPN (z. B. Tailscale) erreicht das Handy die Anlage von überall; SIP bleibt sicher im privaten Netz.' },
+    { id: 'trunk', title: 'Externe Telefonie (SIP-Trunk)', optional: true, done: trunks > 0, detail: trunks > 0 ? `${trunks} Trunk(s) konfiguriert.` : 'Ohne Trunk keine Anrufe ins öffentliche Netz.' },
+  ];
+  res.json({ steps, extensions: extNums, hostName: config.hostName, sipPort: config.asterisk.sipPort });
+}));
+
 // ---------------------------------------------------------------- Netzwerk und Sicherheit
 router.get('/network', requireRole('admin'), h(async (_req, res) => {
   const a = config.asterisk;

@@ -4,6 +4,7 @@ import { api, state, login, logout, restore, post } from './api.js';
 const ROLE_RANK = { user: 1, operator: 2, admin: 3 };
 // Reihenfolge entspricht der geforderten Hauptnavigation; Browsertelefon ist die Zusatzseite fuer WebRTC.
 const PAGES = [
+  { id: 'setup', label: 'Einrichtungsassistent', min: 'operator', icon: '✦' },
   { id: 'dashboard', label: 'Dashboard', min: 'operator' },
   { id: 'extensions', label: 'Nebenstellen', min: 'user' },
   { id: 'devices', label: 'Telefone und Geräte', min: 'operator' },
@@ -21,6 +22,7 @@ const PAGES = [
   { id: 'settings', label: 'Einstellungen', min: 'admin' },
 ];
 const WEBPHONE = { id: 'webphone', label: 'Browsertelefon', min: 'user' };
+const MOBILE = { id: 'mobile', label: 'Handy-App', min: 'user' };
 const ROLE_LABEL = { admin: 'Administrator', operator: 'Operator', user: 'Benutzer' };
 
 const root = document.getElementById('app');
@@ -50,7 +52,7 @@ function showLogin(msg) {
 
 async function route() {
   if (!state.user) return showLogin();
-  const pages = [...PAGES, WEBPHONE].filter(allowed);
+  const pages = [...PAGES, MOBILE, WEBPHONE].filter(allowed);
   const id = (location.hash.replace(/^#\/?/, '') || '').split('?')[0] || pages[0].id;
   const page = pages.find((p) => p.id === id) || pages[0];
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
@@ -77,11 +79,10 @@ async function changePassword() {
 
 function start() {
   if (cleanup) { cleanup(); cleanup = null; }
-  const pages = [...PAGES, WEBPHONE].filter(allowed);
   const nav = h('nav', { class: 'nav', 'aria-label': 'Hauptnavigation' },
-    pages.filter((p) => p.id !== 'webphone').map((p) => h('a', { href: `#/${p.id}`, 'data-id': p.id }, p.label)),
+    PAGES.filter(allowed).map((p) => h('a', { href: `#/${p.id}`, 'data-id': p.id }, p.label)),
     h('div', { class: 'sep' }),
-    h('a', { href: '#/webphone', 'data-id': 'webphone' }, WEBPHONE.label));
+    [MOBILE, WEBPHONE].filter(allowed).map((p) => h('a', { href: `#/${p.id}`, 'data-id': p.id }, p.label)));
   const side = h('aside', { class: 'sidebar' },
     h('div', { class: 'brand' }, h('b', {}, 'M'), 'Mosi Cloud PBX'), nav,
     h('div', { class: 'userbox' }, h('div', {}, state.user.display_name, ' (', state.user.username, ')'), h('div', {}, ROLE_LABEL[state.user.role]),
