@@ -1,7 +1,7 @@
 # Installation auf Proxmox VE
 
-**Grundsatz:** Auf dem Proxmox-Host wird nichts installiert und nichts verändert. Mosi läuft in einer **VM** (empfohlen) oder einem **LXC-Container**.
-`install.sh` bricht ab, wenn es auf einem Proxmox-Host (`pveversion`/`/etc/pve`) gestartet wird.
+**Empfehlung:** Mosi in einer **VM** oder einem **LXC-Container** betreiben, dann bleibt der Host unverändert.
+**Direkt auf dem Host** geht ebenfalls: `./install.sh --install-docker --allow-proxmox-host` (ohne das Flag bricht `install.sh` auf einem Proxmox-Host ab). Dabei werden Docker-Pakete auf dem Host installiert und Docker setzt iptables-Regeln; nicht getestet.
 
 ## Weg 1 (empfohlen): kleine virtuelle Maschine
 

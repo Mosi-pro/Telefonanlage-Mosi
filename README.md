@@ -1,8 +1,7 @@
 # Mosi Cloud PBX
 
 Selbst gehostete Telefonanlage mit **echter SIP-Telefonie** (Asterisk), Web-Dashboard, Browsertelefon (WebRTC) und
-SIP-Trunk-Anbindung. Läuft per Docker Compose in einer **VM oder einem LXC-Container auf Proxmox VE** – der
-Proxmox-Host selbst wird nicht verändert.
+SIP-Trunk-Anbindung. Läuft per Docker Compose **direkt auf einem Ubuntu-/Debian-Server (auch Ubuntu 26.04)**, in einer **VM oder einem LXC-Container auf Proxmox VE** – oder (mit ausdrücklicher Bestätigung) direkt auf dem Proxmox-Host.
 
 > **Ehrlicher Stand:** Der Funktionsumfang unten ist umgesetzt und getestet (siehe [Teststatus](#teststatus)).
 > Was *nicht* getestet werden konnte (echter SIP-Anbieter, echte Tischtelefone/Smartphones, Proxmox selbst, Registrierung über SIP-TLS), ist
@@ -81,6 +80,16 @@ Ausführlich mit Screenshots-freien Schritt-für-Schritt-Befehlen: [`docs/proxmo
    Bei fehlenden Voraussetzungen bricht es mit einer verständlichen Fehlermeldung ab (z. B. kein Docker, Port belegt, zu wenig Speicher, Proxmox-Host).
 
 Optionen: `--host-ip <IP>`, `--hostname <Name>`, `--yes`, `--no-start`, `--skip-build`. Das Skript führt keine Fremdskripte aus.
+
+### Direkt auf einem Server oder dem Proxmox-Host
+
+```bash
+apt-get update && apt-get install -y git curl openssl ca-certificates
+git clone https://github.com/Mosi-pro/Telefonanlage-Mosi.git /opt/mosi && cd /opt/mosi
+./install.sh --install-docker                       # Ubuntu/Debian-Server (auch 26.04)
+./install.sh --install-docker --allow-proxmox-host  # direkt auf dem Proxmox-Host
+```
+Die Container-Images bringen ihre eigene Software mit; auf dem Host werden nur Docker-Pakete installiert. Gibt es für Ihre Ubuntu-Version (z. B. 26.04) noch kein Docker-Repository, nutzt `--install-docker` automatisch `docker.io` + `docker-compose-v2` der Distribution. **Ubuntu 26.04 und der Proxmox-Host wurden nicht getestet.** Auf dem Proxmox-Host ändert Docker iptables-Regeln – Proxmox-Firewall und Ports (443, 80, 5060, 10000–10099/udp) vorher prüfen.
 
 ## Erste Schritte nach der Installation
 

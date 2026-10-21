@@ -28,10 +28,15 @@ require_docker() {
   docker info >/dev/null 2>&1 || die "Der Docker-Dienst ist nicht erreichbar. Laeuft der Daemon? Haben Sie Berechtigung (root oder Gruppe 'docker')?"
 }
 
-# Dieses Projekt darf nie auf dem Proxmox-Host selbst laufen.
+# Auf einem Proxmox-VE-HOST ist die Installation moeglich, veraendert dann aber den Host (Docker-Pakete, iptables-Regeln).
+# Deshalb nur mit ausdruecklicher Bestaetigung (--allow-proxmox-host bzw. MOSI_ALLOW_PROXMOX_HOST=1).
 refuse_proxmox_host() {
   if command -v pveversion >/dev/null 2>&1 || [ -d /etc/pve ]; then
-    die "Dies scheint der Proxmox-VE-HOST zu sein. Mosi darf NICHT auf dem Host installiert werden, sondern in einer VM oder einem LXC-Container (siehe docs/proxmox.md)."
+    if [ "${MOSI_ALLOW_PROXMOX_HOST:-0}" = "1" ]; then
+      warn "Proxmox-VE-HOST erkannt: Docker und Mosi werden direkt auf dem Host betrieben (ausdruecklich erlaubt). Docker aendert iptables-Regeln - Proxmox-Firewall und Docker pruefen (docs/proxmox.md)."
+    else
+      die "Dies ist ein Proxmox-VE-HOST. Direkte Installation auf dem Host ist moeglich, aber nur mit Bestaetigung: ./install.sh --allow-proxmox-host (Empfehlung: VM/LXC, siehe docs/proxmox.md)."
+    fi
   fi
 }
 

@@ -15,7 +15,7 @@
 set -euo pipefail
 source "$(dirname "$0")/scripts/lib.sh"
 
-HOST_IP_OPT=""; HOSTNAME_OPT=""; INSTALL_DOCKER=0; NO_START=0; ASSUME_YES=0; SKIP_BUILD=0
+HOST_IP_OPT=""; HOSTNAME_OPT=""; INSTALL_DOCKER=0; NO_START=0; ASSUME_YES=0; SKIP_BUILD=0; MOSI_ALLOW_PROXMOX_HOST=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --host-ip) HOST_IP_OPT="${2:?}"; shift 2 ;;
@@ -24,26 +24,33 @@ while [ $# -gt 0 ]; do
     --yes|-y) ASSUME_YES=1; shift ;;
     --no-start) NO_START=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
+    --allow-proxmox-host) MOSI_ALLOW_PROXMOX_HOST=1; shift ;;
     --help|-h) sed -n '2,18p' "$0"; exit 0 ;;
     *) die "Unbekannte Option: $1 (siehe --help)" ;;
   esac
 done
-export ASSUME_YES
+export ASSUME_YES MOSI_ALLOW_PROXMOX_HOST
 
 install_docker() {
   [ "$(id -u)" = 0 ] || die "--install-docker benoetigt root."
   . /etc/os-release
   case "${ID:-}" in debian|ubuntu) ;; *) die "--install-docker unterstuetzt nur Debian/Ubuntu. Installieren Sie Docker laut https://docs.docker.com/engine/install/ manuell." ;; esac
-  info "Docker aus dem offiziellen Docker-APT-Repository installieren (https://docs.docker.com/engine/install/${ID}/)"
-  confirm "Folgende Pakete werden installiert: ca-certificates curl docker-ce docker-ce-cli containerd.io docker-compose-plugin. Fortfahren?" || die "Abgebrochen."
   apt-get update
   apt-get install -y ca-certificates curl
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL "https://download.docker.com/linux/${ID}/gpg" -o /etc/apt/keyrings/docker.asc
-  chmod a+r /etc/apt/keyrings/docker.asc
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" > /etc/apt/sources.list.d/docker.list
-  apt-get update
-  apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  if curl -fsI "https://download.docker.com/linux/${ID}/dists/${VERSION_CODENAME}/Release" >/dev/null 2>&1; then
+    info "Docker aus dem offiziellen Docker-APT-Repository installieren (https://docs.docker.com/engine/install/${ID}/)"
+    confirm "Folgende Pakete werden installiert: docker-ce docker-ce-cli containerd.io docker-compose-plugin. Fortfahren?" || die "Abgebrochen."
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL "https://download.docker.com/linux/${ID}/gpg" -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" > /etc/apt/sources.list.d/docker.list
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  else
+    info "Fuer ${ID} ${VERSION_CODENAME} gibt es (noch) kein Docker-Repository - es werden die Pakete der Distribution verwendet"
+    confirm "Folgende Pakete werden installiert: docker.io docker-compose-v2. Fortfahren?" || die "Abgebrochen."
+    apt-get install -y docker.io docker-compose-v2
+  fi
   systemctl enable --now docker
 }
 
