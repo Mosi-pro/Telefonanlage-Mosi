@@ -53,14 +53,40 @@ export default async function render(el) {
   let ua = null; let session = null; let timer = null; let started = 0; let muted = false; let ringer = null;
   const showErr = (m) => { errBox.hidden = !m; errBox.textContent = m || ''; };
 
+  // ---- Signaltoene (WebAudio, deutsche Rufzeichen): Wahlton, Freiton, Besetzt, Auflegen, Verbunden ----
+  let actx = null; let toneStop = null;
+  const ac = () => { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; };
+  function stopTone() { if (toneStop) { toneStop(); toneStop = null; } }
+  /** Spielt einen Ton in Takten: on/off in ms, repeat = Anzahl Wiederholungen (0 = bis stopTone) */
+  function playTone(freq, onMs, offMs, repeat = 0, vol = 0.12) {
+    stopTone();
+    try {
+      const c = ac(); const o = c.createOscillator(); const g = c.createGain();
+      o.frequency.value = freq; o.connect(g); g.connect(c.destination); g.gain.value = 0; o.start();
+      let n = 0; let on = false; let timer = null;
+      const step = () => {
+        on = !on; g.gain.value = on ? vol : 0;
+        if (!on && repeat && ++n >= repeat) { toneStop(); toneStop = null; return; }
+        timer = setTimeout(step, on ? onMs : offMs);
+      };
+      toneStop = () => { clearTimeout(timer); try { o.stop(); } catch { /* schon gestoppt */ } g.disconnect(); };
+      step();
+    } catch { /* kein Ton moeglich */ }
+  }
+  const toneDial = () => playTone(425, 1500, 1, 1);            // kurzer Wahlton beim Start des Anrufs
+  const toneRingback = () => playTone(425, 1000, 4000, 0);      // Freiton: 1 s Ton, 4 s Pause
+  const toneBusy = () => playTone(425, 480, 480, 4);            // Besetztton
+  const toneHangup = () => playTone(425, 160, 120, 3);          // Auflegen: drei kurze Toene
+  const toneConnected = () => playTone(880, 90, 60, 1, 0.1);    // verbunden: kurzes "Pling"
+
   // Einfacher Klingelton ueber WebAudio (kein Audio-Asset noetig)
   function startRing() {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
-      osc.frequency.value = 440; osc.connect(gain); gain.connect(ctx.destination); gain.gain.value = 0; osc.start();
-      let on = false; const iv = setInterval(() => { on = !on; gain.gain.value = on ? 0.15 : 0; }, 800);
-      ringer = () => { clearInterval(iv); osc.stop(); ctx.close(); ringer = null; };
+      osc.frequency.value = 425; osc.connect(gain); gain.connect(ctx.destination); gain.gain.value = 0; osc.start();
+      let on = false; let tm = null; const step = () => { on = !on; gain.gain.value = on ? 0.2 : 0; tm = setTimeout(step, on ? 1000 : 2500); }; step();
+      ringer = () => { clearTimeout(tm); osc.stop(); ctx.close(); ringer = null; };
     } catch { /* kein Ton moeglich */ }
   }
   const stopRing = () => { if (ringer) ringer(); };
@@ -72,18 +98,18 @@ export default async function render(el) {
   }
   function tick() { durEl.textContent = fmtDur((Date.now() - started) / 1000); }
   function end(reason) {
-    clearInterval(timer); stopRing(); session = null; muted = false; muteBtn.textContent = 'Stumm'; durEl.textContent = ''; audio.srcObject = null;
+    clearInterval(timer); stopRing(); if (reason === undefined) stopTone(); session = null; muted = false; muteBtn.textContent = 'Stumm'; durEl.textContent = ''; audio.srcObject = null;
     stateEl.textContent = reason || 'Bereit'; numEl.textContent = ''; setUi('idle');
   }
 
   function attach(s) {
     session = s;
     s.on('peerconnection', (e) => { e.peerconnection.addEventListener('track', (ev) => { audio.srcObject = ev.streams[0]; audio.play().catch(() => {}); }); });
-    s.on('progress', (e) => { if (e.originator === 'remote') stateEl.textContent = 'Es klingelt…'; });   // nur bei ausgehenden Rufen
-    s.on('accepted', () => { stateEl.textContent = 'Im Gespräch'; started = Date.now(); clearInterval(timer); timer = setInterval(tick, 1000); stopRing(); setUi('call'); });
+    s.on('progress', (e) => { if (e.originator === 'remote') { stateEl.textContent = 'Es klingelt…'; if (!e.response || !e.response.body) toneRingback(); } });   // nur bei ausgehenden Rufen
+    s.on('accepted', () => { stopTone(); toneConnected(); stateEl.textContent = 'Im Gespräch'; started = Date.now(); clearInterval(timer); timer = setInterval(tick, 1000); stopRing(); setUi('call'); });
     s.on('confirmed', () => { const pc = s.connection; if (pc) pc.getReceivers().forEach((r) => { if (r.track && r.track.kind === 'audio') { audio.srcObject = new MediaStream([r.track]); audio.play().catch(() => {}); } }); });
-    s.on('ended', () => end('Gespräch beendet'));
-    s.on('failed', (e) => { const c = e.cause; end(`Anruf fehlgeschlagen: ${CAUSES[c] || c}`); showErr(`Anruf fehlgeschlagen: ${CAUSES[c] || c}${e.message && e.message.status_code ? ` (SIP ${e.message.status_code})` : ''}`); });
+    s.on('ended', () => { end('Gespräch beendet'); toneHangup(); });
+    s.on('failed', (e) => { const c = e.cause; if (c === 'Busy' || c === 'Rejected') toneBusy(); else if (c !== 'Canceled') toneHangup(); end(`Anruf fehlgeschlagen: ${CAUSES[c] || c}`); showErr(`Anruf fehlgeschlagen: ${CAUSES[c] || c}${e.message && e.message.status_code ? ` (SIP ${e.message.status_code})` : ''}`); });
   }
 
   function connect(ext) {
@@ -113,7 +139,7 @@ export default async function render(el) {
     if (!/^\+?[0-9*#]{1,24}$/.test(target)) { showErr('Bitte eine gültige Rufnummer eingeben (Ziffern, *, #).'); return; }
     if (!ua || !ua.isRegistered()) { showErr('Das Browsertelefon ist nicht registriert – Anruf nicht möglich.'); return; }
     try { const probe = await navigator.mediaDevices.getUserMedia({ audio: true }); probe.getTracks().forEach((t) => t.stop()); } catch (e) { showErr(mediaError(e)); return; }
-    numEl.textContent = target; stateEl.textContent = 'Wähle…'; setUi('dialing');
+    numEl.textContent = target; stateEl.textContent = 'Wähle…'; setUi('dialing'); toneDial();
     const s = ua.call(`sip:${target}@${cfg.domain}`, { mediaConstraints: { audio: true, video: false }, pcConfig: { iceServers: cfg.iceServers }, rtcOfferConstraints: { offerToReceiveAudio: true } });
     attach(s);
   }
@@ -145,5 +171,5 @@ export default async function render(el) {
   h('p', { class: 'muted' }, 'Audio läuft verschlüsselt (WSS + DTLS-SRTP) zwischen Browser und Telefonanlage. Über Netzgrenzen hinweg (NAT, Mobilfunk) ist je nach Netzwerk ein VPN oder TURN-Server nötig – siehe docs/network.md.'));
   setUi('idle');
   connect(cfg.extensions[0]);
-  return () => { if (session) { try { session.terminate(); } catch { /* ignore */ } } if (ua) ua.stop(); stopRing(); clearInterval(timer); };
+  return () => { if (session) { try { session.terminate(); } catch { /* ignore */ } } if (ua) ua.stop(); stopRing(); stopTone(); clearInterval(timer); };
 }

@@ -6,7 +6,7 @@ source "$(dirname "$0")/scripts/lib.sh"
 ASSUME_YES=0; NO_GIT=0; SKIP_BUILD=0
 for a in "$@"; do case "$a" in --yes|-y) ASSUME_YES=1 ;; --no-git) NO_GIT=1 ;; --skip-build) SKIP_BUILD=1 ;; *) die "Unbekannte Option: $a" ;; esac; done
 export ASSUME_YES
-refuse_proxmox_host; require_docker; check_env_complete
+MOSI_ALLOW_PROXMOX_HOST=1 refuse_proxmox_host; require_docker; check_env_complete
 
 info "1/5 Aktuellen Stand pruefen"
 ./healthcheck.sh --quiet || warn "Das System ist vor dem Update bereits nicht vollstaendig gesund."

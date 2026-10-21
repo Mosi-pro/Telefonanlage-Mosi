@@ -8,7 +8,7 @@ source "$(dirname "$0")/scripts/lib.sh"
 PURGE=0; ASSUME_YES=0
 for a in "$@"; do case "$a" in --purge) PURGE=1 ;; --yes|-y) ASSUME_YES=1 ;; *) die "Unbekannte Option: $a" ;; esac; done
 export ASSUME_YES
-refuse_proxmox_host; require_docker
+MOSI_ALLOW_PROXMOX_HOST=1 refuse_proxmox_host; require_docker
 
 if [ "$PURGE" = 0 ]; then
   confirm "Alle Mosi-Dienste stoppen und die Container entfernen (Daten bleiben erhalten)?" || die "Abgebrochen."
